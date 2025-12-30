@@ -14,11 +14,14 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     queryHistory: []
   });
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [chatSessions, setChatSessions] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState([
     '최근 7일간의 수질 데이터를 보여줘',
     'pH 수치가 7.0 이상인 데이터',
     '위치별 평균 탁도',
   ]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const [popularSearches] = useState([
     '오늘 측정된 모든 데이터',
     '지난 달 온도 평균',
@@ -56,6 +59,18 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     // Add to recent searches if it's a new query
     if (!recentSearches.includes(queryText.trim())) {
       setRecentSearches(prev => [queryText.trim(), ...prev.slice(0, 4)]);
+    }
+
+    // Create a new session if this is the first message
+    if (messages.length === 0 && !activeSessionId) {
+      const newSession = {
+        id: Date.now(),
+        title: queryText.trim().substring(0, 20) + (queryText.trim().length > 20 ? '...' : ''),
+        lastMessage: queryText.trim(),
+        timestamp: new Date()
+      };
+      setChatSessions(prev => [newSession, ...prev]);
+      setActiveSessionId(newSession.id);
     }
 
     const userMessage = {
@@ -171,11 +186,11 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
       setMessages(prev => prev.map(msg =>
         msg.id === assistantMessageId
           ? {
-              ...msg,
-              content: 'SQL 쿼리를 생성했습니다:',
-              streamedSQL: streamedSQL,
-              isThinking: true
-            }
+            ...msg,
+            content: 'SQL 쿼리를 생성했습니다:',
+            streamedSQL: streamedSQL,
+            isThinking: true
+          }
           : msg
       ));
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -185,15 +200,15 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     setMessages(prev => prev.map(msg =>
       msg.id === assistantMessageId
         ? {
-            ...msg,
-            content: 'SQL 쿼리를 생성했습니다:',
-            sql: sqlQuery,
-            streamedSQL: undefined,
-            isThinking: false,
-            showProcess: false,
-            // Keep thinkingSteps and mark all as completed
-            completedSteps: true
-          }
+          ...msg,
+          content: 'SQL 쿼리를 생성했습니다:',
+          sql: sqlQuery,
+          streamedSQL: undefined,
+          isThinking: false,
+          showProcess: false,
+          // Keep thinkingSteps and mark all as completed
+          completedSteps: true
+        }
         : msg
     ));
 
@@ -252,8 +267,8 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
 
     // Check if it's a modification request
     if (lowerQuery.includes('수정') || lowerQuery.includes('변경') ||
-        lowerQuery.includes('바꿔') || lowerQuery.includes('다시') ||
-        lowerQuery.includes('대신') || lowerQuery.includes('말고')) {
+      lowerQuery.includes('바꿔') || lowerQuery.includes('다시') ||
+      lowerQuery.includes('대신') || lowerQuery.includes('말고')) {
       analysis.isModification = true;
       analysis.intent = 'modify';
 
@@ -267,9 +282,9 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
 
     // Check if it's a follow-up question
     if ((lowerQuery.includes('거기서') || lowerQuery.includes('그거') ||
-         lowerQuery.includes('그것') || lowerQuery.includes('여기에') ||
-         lowerQuery.includes('추가로') || lowerQuery.includes('그리고')) &&
-        conversationContext.lastQuery) {
+      lowerQuery.includes('그것') || lowerQuery.includes('여기에') ||
+      lowerQuery.includes('추가로') || lowerQuery.includes('그리고')) &&
+      conversationContext.lastQuery) {
       analysis.isFollowUp = true;
       analysis.assumptions.push(`이전 질문 "${conversationContext.lastQuery}"을 참고하여 진행하겠습니다.`);
     }
@@ -404,7 +419,7 @@ LIMIT 10;`;
   };
 
   return (
-    <div className="chat-panel">
+    <div className={`chat-panel ${!isSidebarOpen ? 'sidebar-collapsed' : ''}`}>
       <div className="chat-header">
         <div className="header-top">
           <div className="header-content">
@@ -422,218 +437,275 @@ LIMIT 10;`;
               onClick={() => setIsDarkMode(!isDarkMode)}
               aria-label="테마 전환"
             >
-              {isDarkMode ? '○' : '●'}
+              {isDarkMode ? '☀️' : '🌙'}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="chat-messages">
-        {messages.map((message) => (
-          <div key={message.id} className={`message ${message.type} ${message.isThinking ? 'thinking' : ''} ${message.isSuccess ? 'success' : ''}`}>
-            <div className="message-avatar">
-              {message.type === 'user' ? (
-                '👤'
-              ) : (
-                <div className="avatar-character">
-                  <img src="/CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
-                </div>
-              )}
-            </div>
-            <div className="message-content">
-              <div className={`message-text ${message.isThinking || message.isExecuting ? 'processing' : ''}`}>
-                {message.content}
-
-                {/* Show thinking steps (clickable) - Show during thinking or after completion */}
-                {message.thinkingSteps && (message.isThinking || message.completedSteps) && (
-                  <div className="thinking-steps">
-                    {message.thinkingSteps.map((step, idx) => (
-                      <div
-                        key={idx}
-                        className={`thinking-step ${
-                          message.completedSteps || idx <= message.currentStepIndex ? 'active' : ''
-                        } ${
-                          !message.completedSteps && idx === message.currentStepIndex ? 'current' : ''
-                        } ${
-                          message.completedSteps ? 'completed' : ''
-                        } ${
-                          expandedSteps[`${message.id}-${idx}`] ? 'expanded' : ''
-                        }`}
-                        onClick={() => {
-                          if (message.completedSteps || idx <= message.currentStepIndex) {
-                            setExpandedSteps(prev => ({
-                              ...prev,
-                              [`${message.id}-${idx}`]: !prev[`${message.id}-${idx}`]
-                            }));
-                          }
-                        }}
-                      >
-                        <div className="step-header">
-                          <span className="step-number">
-                            {message.completedSteps ? '✓' : idx + 1}
-                          </span>
-                          <span className="step-text">{step.text}</span>
-                          {(message.completedSteps || idx <= message.currentStepIndex) && (
-                            <span className="step-icon">{expandedSteps[`${message.id}-${idx}`] ? '▼' : '▶'}</span>
-                          )}
-                        </div>
-                        {expandedSteps[`${message.id}-${idx}`] && (
-                          <div className="step-detail">
-                            <pre>{step.detail}</pre>
-                          </div>
-                        )}
+      <div className="chat-main-container">
+        <div className="chat-sidebar">
+          <div className="sidebar-header">
+            <button
+              className="sidebar-close-btn"
+              onClick={() => setIsSidebarOpen(false)}
+              title="히스토리 접기"
+            >
+              ⇠
+            </button>
+            <button className="new-chat-btn" onClick={() => {
+              setMessages([]);
+              setActiveSessionId(null);
+            }}>
+              <span>+</span> 새 채팅
+            </button>
+          </div>
+          <div className="sidebar-content">
+            <div className="sidebar-section">
+              <span className="section-label">최근 대화</span>
+              <div className="session-list">
+                {chatSessions.length > 0 ? (
+                  chatSessions.map(session => (
+                    <div
+                      key={session.id}
+                      className={`session-item ${activeSessionId === session.id ? 'active' : ''}`}
+                      onClick={() => setActiveSessionId(session.id)}
+                    >
+                      <div className="session-icon">💬</div>
+                      <div className="session-info">
+                        <div className="session-title">{session.title}</div>
+                        <div className="session-meta">{session.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-history">
+                    진행 중인 대화가 없습니다
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="sidebar-footer">
+            <div className="user-profile">
+              <div className="profile-avatar">👤</div>
+              <div className="profile-name">K-water 관리자</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="chat-content-area">
+          <button
+            className="sidebar-open-btn"
+            onClick={() => setIsSidebarOpen(true)}
+            title="히스토리 열기"
+          >
+            ⇢
+          </button>
+          <div className="chat-messages">
+            {messages.map((message) => (
+              <div key={message.id} className={`message ${message.type} ${message.isThinking ? 'thinking' : ''} ${message.isSuccess ? 'success' : ''}`}>
+                <div className="message-avatar">
+                  {message.type === 'user' ? (
+                    '👤'
+                  ) : (
+                    <div className="avatar-character">
+                      <img src="/CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
+                    </div>
+                  )}
+                </div>
+                <div className="message-content">
+                  <div className={`message-text ${message.isThinking || message.isExecuting ? 'processing' : ''}`}>
+                    {message.content}
+
+                    {/* Show thinking steps (clickable) - Show during thinking or after completion */}
+                    {message.thinkingSteps && (message.isThinking || message.completedSteps) && (
+                      <div className="thinking-steps">
+                        {message.thinkingSteps.map((step, idx) => (
+                          <div
+                            key={idx}
+                            className={`thinking-step ${message.completedSteps || idx <= message.currentStepIndex ? 'active' : ''
+                              } ${!message.completedSteps && idx === message.currentStepIndex ? 'current' : ''
+                              } ${message.completedSteps ? 'completed' : ''
+                              } ${expandedSteps[`${message.id}-${idx}`] ? 'expanded' : ''
+                              }`}
+                            onClick={() => {
+                              if (message.completedSteps || idx <= message.currentStepIndex) {
+                                setExpandedSteps(prev => ({
+                                  ...prev,
+                                  [`${message.id}-${idx}`]: !prev[`${message.id}-${idx}`]
+                                }));
+                              }
+                            }}
+                          >
+                            <div className="step-header">
+                              <span className="step-number">
+                                {message.completedSteps ? '✓' : idx + 1}
+                              </span>
+                              <span className="step-text">{step.text}</span>
+                              {(message.completedSteps || idx <= message.currentStepIndex) && (
+                                <span className="step-icon">{expandedSteps[`${message.id}-${idx}`] ? '▼' : '▶'}</span>
+                              )}
+                            </div>
+                            {expandedSteps[`${message.id}-${idx}`] && (
+                              <div className="step-detail">
+                                <pre>{step.detail}</pre>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Show streamed SQL */}
+                    {message.streamedSQL && (
+                      <div className="sql-preview-stream">
+                        <SQLHighlight sql={message.streamedSQL} />
+                      </div>
+                    )}
+
+                    {/* Show final SQL */}
+                    {message.sql && !message.streamedSQL && (
+                      <div className="sql-preview-wrapper">
+                        <SQLHighlight sql={message.sql} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Show clarification options */}
+                  {message.clarificationOptions && message.isWaitingForClarification && (
+                    <div className="clarification-options">
+                      {message.clarificationOptions.map((option, idx) => (
+                        <button
+                          key={idx}
+                          className="clarification-btn"
+                          onClick={() => {
+                            // Add user's choice as a new message
+                            const choiceMessage = {
+                              id: Date.now(),
+                              type: 'user',
+                              content: option,
+                              timestamp: new Date()
+                            };
+                            setMessages(prev => [...prev, choiceMessage]);
+
+                            // Continue with the original query + clarification
+                            const enhancedQuery = `${message.originalQuery} (${option})`;
+                            setInput(enhancedQuery);
+
+                            // Mark the clarification as resolved
+                            setMessages(prev => prev.map(msg =>
+                              msg.id === message.id
+                                ? { ...msg, isWaitingForClarification: false }
+                                : msg
+                            ));
+
+                            // Trigger a new submission
+                            setTimeout(() => {
+                              document.querySelector('.chat-input-form').requestSubmit();
+                            }, 100);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {message.sql && !message.isThinking && (
+                    <div className="message-actions">
+                      <button
+                        className="execute-btn"
+                        onClick={() => handleExecuteSQL(message.sql, message.id)}
+                      >
+                        ▶ SQL 실행
+                      </button>
+                      <div className="quick-actions">
+                        <button
+                          className="quick-action-btn"
+                          onClick={() => setInput('LIMIT을 50개로 수정해줘')}
+                        >
+                          ⟳ LIMIT 변경
+                        </button>
+                        <button
+                          className="quick-action-btn"
+                          onClick={() => setInput('오름차순으로 바꿔줘')}
+                        >
+                          ⇅ 정렬 변경
+                        </button>
+                        <button
+                          className="quick-action-btn"
+                          onClick={() => setInput('위치별로 그룹화해줘')}
+                        >
+                          ⊞ 그룹화
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="input-container">
+            {messages.length === 0 && (
+              <div className="search-suggestions">
+                <div className="suggestion-section">
+                  <span className="suggestion-label">인기 검색어</span>
+                  <div className="suggestion-chips">
+                    {popularSearches.map((search, idx) => (
+                      <button
+                        key={idx}
+                        className="chip"
+                        onClick={() => handleSubmit(null, search)}
+                        disabled={isLoading}
+                      >
+                        <span className="chip-icon">★</span> {search}
+                      </button>
                     ))}
                   </div>
-                )}
-
-                {/* Show streamed SQL */}
-                {message.streamedSQL && (
-                  <div className="sql-preview-stream">
-                    <SQLHighlight sql={message.streamedSQL} />
+                </div>
+                {recentSearches.length > 0 && (
+                  <div className="suggestion-section">
+                    <span className="suggestion-label">최근 검색어</span>
+                    <div className="suggestion-chips">
+                      {recentSearches.map((search, idx) => (
+                        <button
+                          key={idx}
+                          className="chip chip-recent"
+                          onClick={() => handleSubmit(null, search)}
+                          disabled={isLoading}
+                        >
+                          <span className="chip-icon">⟲</span> {search}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
-
-                {/* Show final SQL */}
-                {message.sql && !message.streamedSQL && (
-                  <div className="sql-preview-wrapper">
-                    <SQLHighlight sql={message.sql} />
-                  </div>
-                )}
-              </div>
-
-              {/* Show clarification options */}
-              {message.clarificationOptions && message.isWaitingForClarification && (
-                <div className="clarification-options">
-                  {message.clarificationOptions.map((option, idx) => (
-                    <button
-                      key={idx}
-                      className="clarification-btn"
-                      onClick={() => {
-                        // Add user's choice as a new message
-                        const choiceMessage = {
-                          id: Date.now(),
-                          type: 'user',
-                          content: option,
-                          timestamp: new Date()
-                        };
-                        setMessages(prev => [...prev, choiceMessage]);
-
-                        // Continue with the original query + clarification
-                        const enhancedQuery = `${message.originalQuery} (${option})`;
-                        setInput(enhancedQuery);
-
-                        // Mark the clarification as resolved
-                        setMessages(prev => prev.map(msg =>
-                          msg.id === message.id
-                            ? { ...msg, isWaitingForClarification: false }
-                            : msg
-                        ));
-
-                        // Trigger a new submission
-                        setTimeout(() => {
-                          document.querySelector('.chat-input-form').requestSubmit();
-                        }, 100);
-                      }}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {message.sql && !message.isThinking && (
-                <div className="message-actions">
-                  <button
-                    className="execute-btn"
-                    onClick={() => handleExecuteSQL(message.sql, message.id)}
-                  >
-                    ▶ SQL 실행
-                  </button>
-                  <div className="quick-actions">
-                    <button
-                      className="quick-action-btn"
-                      onClick={() => setInput('LIMIT을 50개로 수정해줘')}
-                    >
-                      ⟳ LIMIT 변경
-                    </button>
-                    <button
-                      className="quick-action-btn"
-                      onClick={() => setInput('오름차순으로 바꿔줘')}
-                    >
-                      ⇅ 정렬 변경
-                    </button>
-                    <button
-                      className="quick-action-btn"
-                      onClick={() => setInput('위치별로 그룹화해줘')}
-                    >
-                      ⊞ 그룹화
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="input-container">
-        {messages.length === 0 && (
-          <div className="search-suggestions">
-            <div className="suggestion-section">
-              <span className="suggestion-label">인기 검색어</span>
-              <div className="suggestion-chips">
-                {popularSearches.map((search, idx) => (
-                  <button
-                    key={idx}
-                    className="chip"
-                    onClick={() => handleSubmit(null, search)}
-                    disabled={isLoading}
-                  >
-                    <span className="chip-icon">★</span> {search}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {recentSearches.length > 0 && (
-              <div className="suggestion-section">
-                <span className="suggestion-label">최근 검색어</span>
-                <div className="suggestion-chips">
-                  {recentSearches.map((search, idx) => (
-                    <button
-                      key={idx}
-                      className="chip chip-recent"
-                      onClick={() => handleSubmit(null, search)}
-                      disabled={isLoading}
-                    >
-                      <span className="chip-icon">⟲</span> {search}
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
-          </div>
-        )}
 
-        <form className="chat-input-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="예: 최근 7일간의 수질 데이터를 보여줘"
-            disabled={isLoading}
-            className="chat-input"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="send-button"
-          >
-            {isLoading ? '⋯' : '→'}
-          </button>
-        </form>
+            <form className="chat-input-form" onSubmit={handleSubmit}>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="예: 최근 7일간의 수질 데이터를 보여줘"
+                disabled={isLoading}
+                className="chat-input"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="send-button"
+              >
+                {isLoading ? '⋯' : '→'}
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

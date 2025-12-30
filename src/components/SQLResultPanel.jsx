@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import './SQLResultPanel.css';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import SQLHighlight from './SQLHighlight';
+import './SQLHighlight.css';
 
 function SQLResultPanel({ sql, executedSQL }) {
   const [activeTab, setActiveTab] = useState('results');
@@ -14,6 +16,7 @@ function SQLResultPanel({ sql, executedSQL }) {
   const tableContainerRef = useRef(null);
   const observerRef = useRef(null);
   const columnPickerRef = useRef(null);
+  const processedExecutionRef = useRef(null);
 
   // Close column picker when clicking outside
   useEffect(() => {
@@ -34,7 +37,7 @@ function SQLResultPanel({ sql, executedSQL }) {
     if (allResults.length > 0) {
       const allKeys = Object.keys(allResults[0]);
       // If it's the first time or SQL executed, set default visible columns
-      const initialVisible = allKeys.filter(key => 
+      const initialVisible = allKeys.filter(key =>
         primaryColumns.includes(key) || allKeys.length <= 4
       );
       setVisibleColumns(initialVisible);
@@ -43,14 +46,17 @@ function SQLResultPanel({ sql, executedSQL }) {
 
   // Reset and load initial data when SQL is executed
   useEffect(() => {
-    if (executedSQL) {
+    if (executedSQL && executedSQL.timestamp !== processedExecutionRef.current) {
+      processedExecutionRef.current = executedSQL.timestamp;
+
+      const sqlQuery = executedSQL.query;
       setPage(0);
       setDisplayedResults(allResults.slice(0, 20));
 
       setQueryHistory(prev => [
         {
           id: Date.now(),
-          query: executedSQL,
+          query: sqlQuery,
           timestamp: new Date(),
           executionTime: '0.023s',
           rowCount: allResults.length,
@@ -152,7 +158,7 @@ function SQLResultPanel({ sql, executedSQL }) {
     const locations = ['수원지A', '수원지B', '수원지C'];
     const baseDate = new Date('2024-01-01');
 
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 1000; i++) {
       const date = new Date(baseDate);
       date.setHours(date.getHours() + i);
 
@@ -200,8 +206,8 @@ function SQLResultPanel({ sql, executedSQL }) {
 
   // Toggle column visibility
   const toggleColumn = (column) => {
-    setVisibleColumns(prev => 
-      prev.includes(column) 
+    setVisibleColumns(prev =>
+      prev.includes(column)
         ? prev.filter(c => c !== column)
         : [...prev, column]
     );
@@ -220,32 +226,98 @@ function SQLResultPanel({ sql, executedSQL }) {
 
   return (
     <div className="sql-result-panel">
-      <div className="panel-tabs">
-        <button
-          className={`tab ${activeTab === 'results' ? 'active' : ''}`}
-          onClick={() => setActiveTab('results')}
-        >
-          ≡ 결과
-        </button>
-        <button
-          className={`tab ${activeTab === 'chart' ? 'active' : ''}`}
-          onClick={() => setActiveTab('chart')}
-          disabled={!executedSQL}
-        >
-          ◐ 차트
-        </button>
-        <button
-          className={`tab ${activeTab === 'schema' ? 'active' : ''}`}
-          onClick={() => setActiveTab('schema')}
-        >
-          ⊟ 스키마
-        </button>
-        <button
-          className={`tab ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          ⟲ 히스토리
-        </button>
+      <div className="panel-header-container">
+        <div className="panel-tabs">
+          <button
+            className={`tab ${activeTab === 'results' ? 'active' : ''}`}
+            onClick={() => setActiveTab('results')}
+          >
+            ≡ 결과
+          </button>
+          <button
+            className={`tab ${activeTab === 'chart' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chart')}
+            disabled={!executedSQL}
+          >
+            ◐ 차트
+          </button>
+          <button
+            className={`tab ${activeTab === 'schema' ? 'active' : ''}`}
+            onClick={() => setActiveTab('schema')}
+          >
+            ⊟ 스키마
+          </button>
+          <button
+            className={`tab ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            ⟲ 히스토리
+          </button>
+        </div>
+
+        <div className="panel-sub-header">
+          {activeTab === 'results' && (
+            <>
+              <div className="results-info">
+                <span className="results-count">
+                  • {displayedResults.length} / {allResults.length} 행 표시 중
+                </span>
+                <span className="execution-time">
+                  ⚡ 실행 시간: 0.023초
+                </span>
+              </div>
+              <div className="results-actions">
+                <div className="column-settings-container" ref={columnPickerRef}>
+                  <button
+                    className={`action-btn column-settings-btn ${isColumnPickerOpen ? 'active' : ''}`}
+                    onClick={() => setIsColumnPickerOpen(!isColumnPickerOpen)}
+                  >
+                    ⚙ 컬럼 설정
+                  </button>
+                  {isColumnPickerOpen && (
+                    <div className="column-picker-dropdown">
+                      <div className="dropdown-header">컬럼 설정 (표시 및 순서)</div>
+                      <div className="column-list">
+                        <div className="dropdown-section">
+                          <div className="section-title">표시 중인 컬럼</div>
+                          {visibleColumns.map((key, index) => (
+                            <div key={key} className="column-item active">
+                              <input type="checkbox" checked={true} onChange={() => toggleColumn(key)} />
+                              <span className="column-name-text">{key}</span>
+                              <div className="reorder-btns">
+                                <button className="reorder-btn" onClick={(e) => { e.stopPropagation(); moveColumn(index, -1); }} disabled={index === 0}>↑</button>
+                                <button className="reorder-btn" onClick={(e) => { e.stopPropagation(); moveColumn(index, 1); }} disabled={index === visibleColumns.length - 1}>↓</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button className="download-btn" onClick={downloadExcel}>↓ 엑셀 다운로드</button>
+              </div>
+            </>
+          )}
+          {activeTab === 'chart' && (
+            <>
+              <h3 style={{ margin: 0, fontSize: '14px' }}>📈 데이터 시각화</h3>
+              <span className="chart-count" style={{ fontSize: '12px', opacity: 0.7 }}>최근 50개 행 표시</span>
+            </>
+          )}
+          {activeTab === 'schema' && (
+            <>
+              <h3 style={{ margin: 0, fontSize: '14px' }}>⊟ 데이터베이스 스키마</h3>
+              <span className="table-count" style={{ fontSize: '12px', opacity: 0.7 }}>{schemaData.length}개 테이블</span>
+            </>
+          )}
+          {activeTab === 'history' && (
+            <>
+              <h3 style={{ margin: 0, fontSize: '14px' }}>⟲ 쿼리 히스토리</h3>
+              <span className="history-count" style={{ fontSize: '12px', opacity: 0.7 }}>{queryHistory.length}개 쿼리</span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="panel-content">
@@ -253,89 +325,6 @@ function SQLResultPanel({ sql, executedSQL }) {
           <div className="results-view">
             {executedSQL ? (
               <>
-                <div className="results-header">
-                  <div className="results-info">
-                    <span className="results-count">
-                      • {displayedResults.length} / {allResults.length} 행 표시 중
-                    </span>
-                    <span className="execution-time">
-                      ⚡ 실행 시간: 0.023초
-                    </span>
-                  </div>
-                  <div className="results-actions">
-                    <div className="column-settings-container" ref={columnPickerRef}>
-                      <button 
-                        className={`action-btn column-settings-btn ${isColumnPickerOpen ? 'active' : ''}`}
-                        onClick={() => setIsColumnPickerOpen(!isColumnPickerOpen)}
-                      >
-                        ⚙ 컬럼 설정
-                      </button>
-                      {isColumnPickerOpen && (
-                        <div className="column-picker-dropdown">
-                          <div className="dropdown-header">컬럼 설정 (표시 및 순서)</div>
-                          <div className="column-list">
-                            {/* Selected Columns with Reordering */}
-                            <div className="dropdown-section">
-                              <div className="section-title">표시 중인 컬럼</div>
-                              {visibleColumns.map((key, index) => (
-                                <div key={key} className="column-item active">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={true}
-                                    onChange={() => toggleColumn(key)}
-                                  />
-                                  <span className="column-name-text">{key}</span>
-                                  <div className="reorder-btns">
-                                    <button 
-                                      className="reorder-btn" 
-                                      onClick={(e) => { e.stopPropagation(); moveColumn(index, -1); }}
-                                      disabled={index === 0}
-                                      title="위로 이동"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button 
-                                      className="reorder-btn" 
-                                      onClick={(e) => { e.stopPropagation(); moveColumn(index, 1); }}
-                                      disabled={index === visibleColumns.length - 1}
-                                      title="아래로 이동"
-                                    >
-                                      ↓
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            
-                            {/* Unselected Columns */}
-                            {allResults.length > 0 && Object.keys(allResults[0])
-                              .filter(key => !visibleColumns.includes(key))
-                              .length > 0 && (
-                              <div className="dropdown-section">
-                                <div className="section-title">숨겨진 컬럼</div>
-                                {Object.keys(allResults[0])
-                                  .filter(key => !visibleColumns.includes(key))
-                                  .map(key => (
-                                    <label key={key} className="column-item">
-                                      <input 
-                                        type="checkbox" 
-                                        checked={false}
-                                        onChange={() => toggleColumn(key)}
-                                      />
-                                      <span>{key}</span>
-                                    </label>
-                                  ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <button className="download-btn" onClick={downloadExcel}>
-                      ↓ 엑셀 다운로드
-                    </button>
-                  </div>
-                </div>
                 <div className="table-container" ref={tableContainerRef}>
                   <table className="results-table">
                     <thead>
@@ -376,10 +365,6 @@ function SQLResultPanel({ sql, executedSQL }) {
           <div className="chart-view">
             {executedSQL && displayedResults.length > 0 ? (
               <>
-                <div className="chart-header">
-                  <h3>데이터 시각화</h3>
-                  <span className="chart-count">최근 50개 행 표시</span>
-                </div>
                 <div className="charts-container">
                   <div className="chart-section">
                     <h4>▸ pH 수치 추이</h4>
@@ -461,10 +446,6 @@ function SQLResultPanel({ sql, executedSQL }) {
 
         {activeTab === 'schema' && (
           <div className="schema-view">
-            <div className="schema-header">
-              <h3>데이터베이스 스키마</h3>
-              <span className="table-count">{schemaData.length}개 테이블</span>
-            </div>
             <div className="schema-list">
               {schemaData.map((table, idx) => (
                 <div key={idx} className="schema-table">
@@ -499,10 +480,6 @@ function SQLResultPanel({ sql, executedSQL }) {
 
         {activeTab === 'history' && (
           <div className="history-view">
-            <div className="history-header">
-              <h3>쿼리 히스토리</h3>
-              <span className="history-count">{queryHistory.length}개 쿼리</span>
-            </div>
             {queryHistory.length > 0 ? (
               <div className="history-list">
                 {queryHistory.map((item) => (
@@ -519,9 +496,9 @@ function SQLResultPanel({ sql, executedSQL }) {
                         ⚡ {item.executionTime} • {item.rowCount}개 행
                       </span>
                     </div>
-                    <pre className="history-query">
-                      <code>{item.query}</code>
-                    </pre>
+                    <div className="history-query-wrapper">
+                      <SQLHighlight sql={item.query} />
+                    </div>
                     <div className="history-action">
                       <span className="action-hint">→ 클릭하여 결과 보기</span>
                     </div>

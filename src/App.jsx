@@ -14,7 +14,10 @@ function App() {
   }
 
   const handleSQLExecute = (sql) => {
-    setExecutedSQL(sql)
+    setExecutedSQL({
+      query: sql,
+      timestamp: Date.now()
+    })
     setShowResultPanel(true)
     // Here you would typically make an API call to execute the SQL
     console.log('Executing SQL:', sql)
