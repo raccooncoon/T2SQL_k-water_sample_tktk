@@ -1,0 +1,92 @@
+.resizable-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.resizable-panel {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  transition: width 0.3s ease;
+}
+
+.left-panel {
+  border-right: 1px solid var(--border-color);
+}
+
+.full-view .left-panel {
+  border-right: none;
+}
+
+.right-panel {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.resizer {
+  width: 1px;
+  cursor: col-resize;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-color);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.resizer:hover,
+.resizer.dragging {
+  background: var(--primary-blue);
+}
+
+.resizer-handle {
+  width: 8px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: -4px;
+}
+
+.resizer-line {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.resizer:hover .resizer-line,
+.resizer.dragging .resizer-line {
+  width: 3px;
+  height: 48px;
+  opacity: 1;
+  background: var(--primary-blue);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(26, 115, 232, 0.3);
+}
+
+.resizer.dragging {
+  background: var(--primary-blue);
+  opacity: 0.5;
+}
+
+/* Prevent text selection while dragging */
+.resizer-active {
+  user-select: none;
+}
