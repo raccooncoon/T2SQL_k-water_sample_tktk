@@ -409,10 +409,12 @@ LIMIT 10;`;
         <div className="header-top">
           <div className="header-content">
             <div className="header-title">
-              <img src="/kwater_mark1.gif" alt="K-water" className="app-logo" />
-              <h2>SQL 쿼리 생성기</h2>
+              <img src="/kwater-logo.png" alt="K-water" className="app-logo" />
+              <div className="header-text">
+                <h2>수질 데이터 인텔리전스</h2>
+                <img src="/kwater-slogan2.png" alt="세상을 바꾸는 가치를 만듭니다" className="header-slogan" />
+              </div>
             </div>
-            <p className="header-subtitle">자연어를 최적화된 SQL 쿼리로 변환합니다</p>
           </div>
           <div className="header-actions">
             <button
@@ -433,7 +435,9 @@ LIMIT 10;`;
               {message.type === 'user' ? (
                 '👤'
               ) : (
-                <img src="/kwater_mark2.gif" alt="K-water AI" className="avatar-logo" />
+                <div className="avatar-character">
+                  <img src="/CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
+                </div>
               )}
             </div>
             <div className="message-content">
@@ -579,7 +583,7 @@ LIMIT 10;`;
         {messages.length === 0 && (
           <div className="search-suggestions">
             <div className="suggestion-section">
-              <span className="suggestion-label">★ 인기 검색어</span>
+              <span className="suggestion-label">인기 검색어</span>
               <div className="suggestion-chips">
                 {popularSearches.map((search, idx) => (
                   <button
@@ -588,14 +592,14 @@ LIMIT 10;`;
                     onClick={() => handleSubmit(null, search)}
                     disabled={isLoading}
                   >
-                    {search}
+                    <span className="chip-icon">★</span> {search}
                   </button>
                 ))}
               </div>
             </div>
             {recentSearches.length > 0 && (
               <div className="suggestion-section">
-                <span className="suggestion-label">⟲ 최근 검색어</span>
+                <span className="suggestion-label">최근 검색어</span>
                 <div className="suggestion-chips">
                   {recentSearches.map((search, idx) => (
                     <button
@@ -604,7 +608,7 @@ LIMIT 10;`;
                       onClick={() => handleSubmit(null, search)}
                       disabled={isLoading}
                     >
-                      {search}
+                      <span className="chip-icon">⟲</span> {search}
                     </button>
                   ))}
                 </div>

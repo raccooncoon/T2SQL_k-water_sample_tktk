@@ -9,8 +9,37 @@ function SQLResultPanel({ sql, executedSQL }) {
   const [page, setPage] = useState(0);
   const [queryHistory, setQueryHistory] = useState([]);
   const [schemaData] = useState(generateSchemaData());
+  const [visibleColumns, setVisibleColumns] = useState([]);
+  const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
   const tableContainerRef = useRef(null);
   const observerRef = useRef(null);
+  const columnPickerRef = useRef(null);
+
+  // Close column picker when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (columnPickerRef.current && !columnPickerRef.current.contains(event.target)) {
+        setIsColumnPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Primary columns that are shown by default
+  const primaryColumns = ['번호', '측정일시', '위치', 'pH수치', '평균_pH', '측정횟수'];
+
+  // Initialize visible columns when results change
+  useEffect(() => {
+    if (allResults.length > 0) {
+      const allKeys = Object.keys(allResults[0]);
+      // If it's the first time or SQL executed, set default visible columns
+      const initialVisible = allKeys.filter(key => 
+        primaryColumns.includes(key) || allKeys.length <= 4
+      );
+      setVisibleColumns(initialVisible);
+    }
+  }, [allResults]);
 
   // Reset and load initial data when SQL is executed
   useEffect(() => {
@@ -169,6 +198,26 @@ function SQLResultPanel({ sql, executedSQL }) {
     ];
   }
 
+  // Toggle column visibility
+  const toggleColumn = (column) => {
+    setVisibleColumns(prev => 
+      prev.includes(column) 
+        ? prev.filter(c => c !== column)
+        : [...prev, column]
+    );
+  };
+
+  // Move column order
+  const moveColumn = (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= visibleColumns.length) return;
+
+    const newColumns = [...visibleColumns];
+    const [movedColumn] = newColumns.splice(index, 1);
+    newColumns.splice(newIndex, 0, movedColumn);
+    setVisibleColumns(newColumns);
+  };
+
   return (
     <div className="sql-result-panel">
       <div className="panel-tabs">
@@ -213,15 +262,85 @@ function SQLResultPanel({ sql, executedSQL }) {
                       ⚡ 실행 시간: 0.023초
                     </span>
                   </div>
-                  <button className="download-btn" onClick={downloadExcel}>
-                    ↓ 엑셀 다운로드
-                  </button>
+                  <div className="results-actions">
+                    <div className="column-settings-container" ref={columnPickerRef}>
+                      <button 
+                        className={`action-btn column-settings-btn ${isColumnPickerOpen ? 'active' : ''}`}
+                        onClick={() => setIsColumnPickerOpen(!isColumnPickerOpen)}
+                      >
+                        ⚙ 컬럼 설정
+                      </button>
+                      {isColumnPickerOpen && (
+                        <div className="column-picker-dropdown">
+                          <div className="dropdown-header">컬럼 설정 (표시 및 순서)</div>
+                          <div className="column-list">
+                            {/* Selected Columns with Reordering */}
+                            <div className="dropdown-section">
+                              <div className="section-title">표시 중인 컬럼</div>
+                              {visibleColumns.map((key, index) => (
+                                <div key={key} className="column-item active">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={true}
+                                    onChange={() => toggleColumn(key)}
+                                  />
+                                  <span className="column-name-text">{key}</span>
+                                  <div className="reorder-btns">
+                                    <button 
+                                      className="reorder-btn" 
+                                      onClick={(e) => { e.stopPropagation(); moveColumn(index, -1); }}
+                                      disabled={index === 0}
+                                      title="위로 이동"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button 
+                                      className="reorder-btn" 
+                                      onClick={(e) => { e.stopPropagation(); moveColumn(index, 1); }}
+                                      disabled={index === visibleColumns.length - 1}
+                                      title="아래로 이동"
+                                    >
+                                      ↓
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Unselected Columns */}
+                            {allResults.length > 0 && Object.keys(allResults[0])
+                              .filter(key => !visibleColumns.includes(key))
+                              .length > 0 && (
+                              <div className="dropdown-section">
+                                <div className="section-title">숨겨진 컬럼</div>
+                                {Object.keys(allResults[0])
+                                  .filter(key => !visibleColumns.includes(key))
+                                  .map(key => (
+                                    <label key={key} className="column-item">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={false}
+                                        onChange={() => toggleColumn(key)}
+                                      />
+                                      <span>{key}</span>
+                                    </label>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button className="download-btn" onClick={downloadExcel}>
+                      ↓ 엑셀 다운로드
+                    </button>
+                  </div>
                 </div>
                 <div className="table-container" ref={tableContainerRef}>
                   <table className="results-table">
                     <thead>
                       <tr>
-                        {displayedResults.length > 0 && Object.keys(displayedResults[0]).map(key => (
+                        {visibleColumns.map(key => (
                           <th key={key}>{key}</th>
                         ))}
                       </tr>
@@ -229,8 +348,8 @@ function SQLResultPanel({ sql, executedSQL }) {
                     <tbody>
                       {displayedResults.map((row, idx) => (
                         <tr key={idx}>
-                          {Object.values(row).map((value, i) => (
-                            <td key={i}>{value}</td>
+                          {visibleColumns.map((key, i) => (
+                            <td key={i}>{row[key]}</td>
                           ))}
                         </tr>
                       ))}
