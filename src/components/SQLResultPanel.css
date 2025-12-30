@@ -684,11 +684,24 @@
 }
 
 .history-query-wrapper .sql-highlight {
-  padding: 12px;
-  font-size: 13px;
-  background: var(--bg-secondary);
+  font-size: 12px;
   box-shadow: none;
-  border-color: var(--border-color);
+  border-radius: 8px;
+}
+
+.history-query-wrapper .sql-header {
+  height: 32px;
+  padding: 0 12px;
+}
+
+.history-query-wrapper .sql-line {
+  padding-left: 1.5rem;
+  text-indent: -1.5rem;
+  line-height: 1.5;
+}
+
+.history-query-wrapper .sql-code-body {
+  padding: 12px;
 }
 
 .history-query-wrapper .sql-highlight code {
