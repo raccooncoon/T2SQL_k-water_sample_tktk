@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import './ChatPanel.css';
-import SQLHighlight from './SQLHighlight';
 import './SQLHighlight.css';
+import ChatSidebar from './ChatSidebar';
+import ChatMessage from './ChatMessage';
+import ChatInput from './ChatInput';
+import { analyzeQuery, generateMockSQL } from '../utils/chatUtils';
 
 function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
   const [messages, setMessages] = useState([]);
@@ -84,8 +87,8 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
     setInput('');
     setIsLoading(true);
 
-    // Analyze the query first
-    const analysis = analyzeQuery(userMessage.content);
+    // Analyze the query first using utility
+    const analysis = analyzeQuery(userMessage.content, conversationContext);
 
     const assistantMessageId = Date.now() + 1;
 
@@ -133,7 +136,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       },
     ];
 
-    // Add initial thinking message with assumptions
+    // Add initial thinking message
     setMessages(prev => [...prev, {
       id: assistantMessageId,
       type: 'assistant',
@@ -154,7 +157,6 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       await new Promise(resolve => setTimeout(resolve, thinkingSteps[i].delay));
 
       if (i < thinkingSteps.length - 1) {
-        // Collapse current and expand next step
         setExpandedSteps(prev => ({
           ...prev,
           [`${assistantMessageId}-${i}`]: false,
@@ -167,7 +169,6 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
             : msg
         ));
       } else {
-        // Collapse the last step when thinking is complete
         setTimeout(() => {
           setExpandedSteps(prev => ({
             ...prev,
@@ -177,8 +178,8 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       }
     }
 
-    // Generate SQL and show process
-    const sqlQuery = generateMockSQL(userMessage.content, analysis);
+    // Generate SQL using utility
+    const sqlQuery = generateMockSQL(userMessage.content, analysis, conversationContext);
 
     // Update conversation context
     setConversationContext(prev => ({
@@ -215,7 +216,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Finalize message - Keep thinking steps visible
+    // Finalize message
     setMessages(prev => prev.map(msg =>
       msg.id === assistantMessageId
         ? {
@@ -225,18 +226,13 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
           streamedSQL: undefined,
           isThinking: false,
           showProcess: false,
-          // Keep thinkingSteps and mark all as completed
           completedSteps: true
         }
         : msg
     ));
 
     setIsLoading(false);
-
-    // Notify parent component about SQL generation
-    if (onSQLGenerate) {
-      onSQLGenerate(sqlQuery);
-    }
+    if (onSQLGenerate) onSQLGenerate(sqlQuery);
   };
 
   const startNewChat = () => {
@@ -247,7 +243,6 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
   };
 
   const handleExecuteSQL = async (sql, messageId) => {
-    // Add execution status message
     const executionMessageId = Date.now();
     setMessages(prev => [...prev, {
       id: executionMessageId,
@@ -257,7 +252,6 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       timestamp: new Date()
     }]);
 
-    // Simulate execution process
     await new Promise(resolve => setTimeout(resolve, 800));
 
     setMessages(prev => prev.map(msg =>
@@ -274,208 +268,28 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
         : msg
     ));
 
-    // Notify parent component
-    if (onSQLExecute) {
-      onSQLExecute(sql);
-    }
+    if (onSQLExecute) onSQLExecute(sql);
+  };
+
+  const handleClarification = (message, option) => {
+    const choiceMessage = {
+      id: Date.now(),
+      type: 'user',
+      content: option,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, choiceMessage]);
+    setMessages(prev => prev.map(msg =>
+      msg.id === message.id
+        ? { ...msg, isWaitingForClarification: false }
+        : msg
+    ));
+    const combinedQuery = `${message.originalQuery} ${option}`;
+    handleSubmit(null, combinedQuery);
   };
 
   const handleDeleteRecentSearch = (searchToDelete) => {
     setRecentSearches(prev => prev.filter(search => search !== searchToDelete));
-  };
-
-  const analyzeQuery = (query) => {
-    const lowerQuery = query.toLowerCase();
-    const analysis = {
-      isAmbiguous: false,
-      clarificationNeeded: [],
-      assumptions: [],
-      intent: 'general',
-      isModification: false,
-      isFollowUp: false
-    };
-
-    // Check if it's a modification request
-    if (lowerQuery.includes('수정') || lowerQuery.includes('변경') ||
-      lowerQuery.includes('바꿔') || lowerQuery.includes('다시') ||
-      lowerQuery.includes('대신') || lowerQuery.includes('말고')) {
-      analysis.isModification = true;
-      analysis.intent = 'modify';
-
-      if (!conversationContext.lastSQL) {
-        analysis.assumptions.push('이전 쿼리가 없어 새로운 쿼리를 생성하겠습니다.');
-      } else {
-        analysis.assumptions.push(`이전 쿼리를 기반으로 수정하겠습니다.`);
-      }
-      return analysis;
-    }
-
-    // Check if it's a follow-up question
-    if ((lowerQuery.includes('거기서') || lowerQuery.includes('그거') ||
-      lowerQuery.includes('그것') || lowerQuery.includes('여기에') ||
-      lowerQuery.includes('추가로') || lowerQuery.includes('그리고')) &&
-      conversationContext.lastQuery) {
-      analysis.isFollowUp = true;
-      analysis.assumptions.push(`이전 질문 "${conversationContext.lastQuery}"을 참고하여 진행하겠습니다.`);
-    }
-
-    // 1. Check for time period ambiguity
-    if ((lowerQuery.includes('최근') || lowerQuery.includes('데이터')) && !lowerQuery.match(/\d+/) && !lowerQuery.includes('오늘') && !lowerQuery.includes('어제')) {
-      if (!lowerQuery.includes('7일') && !lowerQuery.includes('1개월') && !lowerQuery.includes('한달')) {
-        analysis.isAmbiguous = true;
-        analysis.clarificationNeeded.push({
-          question: '조회하고 싶은 기간을 가르쳐 주시겠습니까?',
-          options: ['최근 7일', '최근 1개월', '오늘 하루'],
-          field: 'period'
-        });
-        analysis.assumptions.push('기간이 명시되지 않아 최근 7일 데이터로 가정합니다.');
-      }
-    }
-
-    // 2. Check for location ambiguity
-    if (lowerQuery.includes('수질') || lowerQuery.includes('데이터') || lowerQuery.includes('평균')) {
-      if (!lowerQuery.includes('수원지') && !lowerQuery.includes('모든') && !lowerQuery.includes('전체') && !lowerQuery.includes('위치')) {
-        analysis.isAmbiguous = true;
-        analysis.clarificationNeeded.push({
-          question: '어느 지역(수원지)의 데이터를 확인하시겠습니까?',
-          options: ['전체 지역', '수원지A', '수원지B'],
-          field: 'location'
-        });
-        analysis.assumptions.push('특정 위치가 지정되지 않아 전체 지역을 탐색합니다.');
-      }
-    }
-
-    // 3. Check for indicator ambiguity (when '평균' or '통계' is mentioned)
-    if (lowerQuery.includes('평균') || lowerQuery.includes('통계')) {
-      if (!lowerQuery.includes('ph') && !lowerQuery.includes('탁도') && !lowerQuery.includes('온도')) {
-        analysis.isAmbiguous = true;
-        analysis.clarificationNeeded.push({
-          question: '어떤 항목의 통계를 보시겠습니까?',
-          options: ['pH 수치', '탁도', '온도', '전체 항목'],
-          field: 'indicator'
-        });
-        analysis.assumptions.push('모든 수질 지표(pH, 탁도, 온도)의 요약 정보를 계산하겠습니다.');
-      }
-    }
-
-    // 4. Check for abnormality criteria
-    if (lowerQuery.includes('이상') || lowerQuery.includes('위험') || lowerQuery.includes('비정상') || lowerQuery.includes('문제')) {
-      if (!lowerQuery.match(/\d+/) && !lowerQuery.includes('기준')) {
-        analysis.isAmbiguous = true;
-        analysis.clarificationNeeded.push({
-          question: '비정상 데이터의 기준을 선택하시거나 직접 입력해 주세요.',
-          options: ['pH 8.5 이상', '탁도 0.5 NTU 이상', '온도 25도 이상'],
-          field: 'threshold'
-        });
-        analysis.assumptions.push('일반적인 수질 기준치를 넘는 데이터를 검색하겠습니다.');
-      }
-    }
-
-    // Determine intent if not ambiguous or as a fallback
-    if (lowerQuery.includes('평균')) {
-      analysis.intent = 'average';
-    } else if (lowerQuery.includes('최근') || lowerQuery.includes('조회')) {
-      analysis.intent = 'recent';
-    } else if (lowerQuery.includes('모든') || lowerQuery.includes('전체')) {
-      analysis.intent = 'all';
-    }
-
-    // Very short queries
-    if (lowerQuery.length < 3 && analysis.clarificationNeeded.length === 0) {
-      analysis.isAmbiguous = true;
-      analysis.clarificationNeeded.push({
-        question: '도움이 필요하신 내용을 선택하시겠어요?',
-        options: ['최근 수질 조회', '위치별 평균 통계', '수질 이상치 확인'],
-        field: 'action'
-      });
-    }
-
-    return analysis;
-  };
-
-  const generateMockSQL = (query, analysis) => {
-    const lowerQuery = query.toLowerCase();
-
-    // Default values
-    let selectClause = "SELECT id AS '번호', measurement_date AS '측정일시', location AS '위치', ph_level AS 'pH수치', turbidity AS '탁도', temperature AS '온도', residual_chlorine AS '잔류염소', toc AS '총유기탄소', ammonia_nitrogen AS '암모니아성질소', conductivity AS '전기전도도'";
-    let fromClause = "FROM water_quality";
-    let whereConditions = [];
-    let groupByClause = "";
-    let orderByClause = "ORDER BY measurement_date DESC";
-    let limitClause = "LIMIT 100";
-
-    // Handle modification requests
-    if (analysis.isModification && conversationContext.lastSQL) {
-      const lastSQL = conversationContext.lastSQL;
-      if (lowerQuery.includes('제한') || lowerQuery.includes('limit') || lowerQuery.match(/\d+개/)) {
-        const limitMatch = query.match(/(\d+)/);
-        const newLimit = limitMatch ? limitMatch[1] : '50';
-        return lastSQL.replace(/LIMIT \d+/i, `LIMIT ${newLimit}`);
-      }
-      if (lowerQuery.includes('오름차순') || lowerQuery.includes('asc')) {
-        return lastSQL.replace(/DESC/gi, 'ASC');
-      } else if (lowerQuery.includes('내림차순') || lowerQuery.includes('desc')) {
-        return lastSQL.replace(/ASC/gi, 'DESC');
-      }
-      if (lowerQuery.includes('그룹') || lowerQuery.includes('group')) {
-        const baseSQL = lastSQL.replace(/ORDER BY.*$/i, '');
-        return baseSQL + '\nGROUP BY location\nORDER BY location;';
-      }
-    }
-
-    // Parse Location
-    if (lowerQuery.includes('수원지a')) {
-      whereConditions.push("location = '수원지A'");
-    } else if (lowerQuery.includes('수원지b')) {
-      whereConditions.push("location = '수원지B'");
-    }
-
-    // Parse Period
-    if (lowerQuery.includes('7일')) {
-      whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
-    } else if (lowerQuery.includes('1개월') || lowerQuery.includes('한달')) {
-      whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
-    } else if (lowerQuery.includes('오늘')) {
-      whereConditions.push("DATE(measurement_date) = CURDATE()");
-    } else if (lowerQuery.includes('최근')) {
-      whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
-    }
-
-    // Parse Thresholds (Abnormalities)
-    if (lowerQuery.includes('ph 8.5 이상')) {
-      whereConditions.push("ph_level >= 8.5");
-    } else if (lowerQuery.includes('탁도 0.5')) {
-      whereConditions.push("turbidity >= 0.5");
-    } else if (lowerQuery.includes('온도 25')) {
-      whereConditions.push("temperature >= 25");
-    }
-
-    // Handle Aggregation / Intent
-    if (analysis.intent === 'average' || lowerQuery.includes('평균')) {
-      if (lowerQuery.includes('ph')) {
-        selectClause = "SELECT location AS '위치', AVG(ph_level) AS '평균_pH'";
-      } else if (lowerQuery.includes('탁도')) {
-        selectClause = "SELECT location AS '위치', AVG(turbidity) AS '평균_탁도'";
-      } else if (lowerQuery.includes('온도')) {
-        selectClause = "SELECT location AS '위치', AVG(temperature) AS '평균_온도'";
-      } else {
-        selectClause = "SELECT location AS '위치', AVG(ph_level) AS '평균_pH', AVG(turbidity) AS '평균_탁도', AVG(temperature) AS '평균_온도'";
-      }
-      groupByClause = "GROUP BY location";
-      orderByClause = "ORDER BY location";
-    }
-
-    // Construct Final SQL
-    let finalSQL = `${selectClause}\n${fromClause}`;
-    if (whereConditions.length > 0) {
-      finalSQL += `\nWHERE ${whereConditions.join('\n  AND ')}`;
-    }
-    if (groupByClause) {
-      finalSQL += `\n${groupByClause}`;
-    }
-    finalSQL += `\n${orderByClause}\n${limitClause};`;
-
-    return finalSQL;
   };
 
   return (
@@ -507,52 +321,13 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       </div>
 
       <div className="chat-main-container">
-        <div className="chat-sidebar">
-          <div className="sidebar-header">
-            <button
-              className="sidebar-close-btn"
-              onClick={() => setIsSidebarOpen(false)}
-              title="히스토리 접기"
-            >
-              ⇠
-            </button>
-            <button className="new-chat-btn" onClick={startNewChat}>
-              <span>+</span> 새 채팅
-            </button>
-          </div>
-          <div className="sidebar-content">
-            <div className="sidebar-section">
-              <span className="section-label">최근 대화</span>
-              <div className="session-list">
-                {chatSessions.length > 0 ? (
-                  chatSessions.map(session => (
-                    <div
-                      key={session.id}
-                      className={`session-item ${activeSessionId === session.id ? 'active' : ''}`}
-                      onClick={() => setActiveSessionId(session.id)}
-                    >
-                      <div className="session-icon">💬</div>
-                      <div className="session-info">
-                        <div className="session-title">{session.title}</div>
-                        <div className="session-meta">{session.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="empty-history">
-                    진행 중인 대화가 없습니다
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="sidebar-footer">
-            <div className="user-profile">
-              <div className="profile-avatar">👤</div>
-              <div className="profile-name">K-water 관리자</div>
-            </div>
-          </div>
-        </div>
+        <ChatSidebar
+          chatSessions={chatSessions}
+          activeSessionId={activeSessionId}
+          setActiveSessionId={setActiveSessionId}
+          setIsSidebarOpen={setIsSidebarOpen}
+          startNewChat={startNewChat}
+        />
 
         <div className="chat-content-area">
           <button
@@ -564,213 +339,29 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
           </button>
           <div className="chat-messages">
             {messages.map((message) => (
-              <div key={message.id} className={`message ${message.type} ${message.isThinking ? 'thinking' : ''} ${message.isSuccess ? 'success' : ''}`}>
-                <div className="message-avatar">
-                  {message.type === 'user' ? (
-                    '👤'
-                  ) : (
-                    <div className="avatar-character">
-                      <img src="CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
-                    </div>
-                  )}
-                </div>
-                <div className="message-content">
-                  <div className={`message-text ${message.isThinking || message.isExecuting ? 'processing' : ''}`}>
-                    {message.content}
-
-                    {/* Show thinking steps (clickable) - Show during thinking or after completion */}
-                    {message.thinkingSteps && (message.isThinking || message.completedSteps) && (
-                      <div className="thinking-steps">
-                        {message.thinkingSteps.map((step, idx) => (
-                          <div
-                            key={idx}
-                            className={`thinking-step ${message.completedSteps || idx <= message.currentStepIndex ? 'active' : ''
-                              } ${!message.completedSteps && idx === message.currentStepIndex ? 'current' : ''
-                              } ${message.completedSteps ? 'completed' : ''
-                              } ${expandedSteps[`${message.id}-${idx}`] ? 'expanded' : ''
-                              }`}
-                            onClick={() => {
-                              if (message.completedSteps || idx <= message.currentStepIndex) {
-                                setExpandedSteps(prev => ({
-                                  ...prev,
-                                  [`${message.id}-${idx}`]: !prev[`${message.id}-${idx}`]
-                                }));
-                              }
-                            }}
-                          >
-                            <div className="step-header">
-                              <span className="step-number">
-                                {message.completedSteps ? '✓' : idx + 1}
-                              </span>
-                              <span className="step-text">{step.text}</span>
-                              {(message.completedSteps || idx <= message.currentStepIndex) && (
-                                <span className="step-icon">{expandedSteps[`${message.id}-${idx}`] ? '▼' : '▶'}</span>
-                              )}
-                            </div>
-                            {expandedSteps[`${message.id}-${idx}`] && (
-                              <div className="step-detail">
-                                <pre>{step.detail}</pre>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Show streamed SQL */}
-                    {message.streamedSQL && (
-                      <div className="sql-preview-stream">
-                        <SQLHighlight sql={message.streamedSQL} />
-                      </div>
-                    )}
-
-                    {/* Show final SQL */}
-                    {message.sql && !message.streamedSQL && (
-                      <div className="sql-preview-wrapper">
-                        <SQLHighlight sql={message.sql} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Show clarification options */}
-                  {message.clarificationOptions && message.isWaitingForClarification && (
-                    <div className="clarification-options">
-                      {message.clarificationOptions.map((option, idx) => (
-                        <button
-                          key={idx}
-                          className="clarification-btn"
-                          onClick={() => {
-                            // Add user's choice as a new message
-                            const choiceMessage = {
-                              id: Date.now(),
-                              type: 'user',
-                              content: option,
-                              timestamp: new Date()
-                            };
-                            setMessages(prev => [...prev, choiceMessage]);
-
-                            // Mark the clarification as resolved
-                            setMessages(prev => prev.map(msg =>
-                              msg.id === message.id
-                                ? { ...msg, isWaitingForClarification: false }
-                                : msg
-                            ));
-
-                            // Trigger a new submission with combined context
-                            const combinedQuery = `${message.originalQuery} ${option}`;
-                            handleSubmit(null, combinedQuery);
-                          }}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {message.sql && !message.isThinking && (
-                    <div className="message-actions">
-                      <button
-                        className="execute-btn"
-                        onClick={() => handleExecuteSQL(message.sql, message.id)}
-                      >
-                        ▶ SQL 실행
-                      </button>
-                      <div className="quick-actions">
-                        <button
-                          className="quick-action-btn"
-                          onClick={() => setInput('LIMIT을 50개로 수정해줘')}
-                        >
-                          ⟳ LIMIT 변경
-                        </button>
-                        <button
-                          className="quick-action-btn"
-                          onClick={() => setInput('오름차순으로 바꿔줘')}
-                        >
-                          ⇅ 정렬 변경
-                        </button>
-                        <button
-                          className="quick-action-btn"
-                          onClick={() => setInput('위치별로 그룹화해줘')}
-                        >
-                          ⊞ 그룹화
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ChatMessage
+                key={message.id}
+                message={message}
+                expandedSteps={expandedSteps}
+                setExpandedSteps={setExpandedSteps}
+                handleExecuteSQL={handleExecuteSQL}
+                setInput={setInput}
+                handleClarification={handleClarification}
+              />
             ))}
-
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="input-container">
-            {messages.length === 0 && (
-              <div className="search-suggestions">
-                <div className="suggestion-section">
-                  <span className="suggestion-label">인기 검색어</span>
-                  <div className="suggestion-chips">
-                    {popularSearches.map((search, idx) => (
-                      <button
-                        key={idx}
-                        className="chip"
-                        onClick={() => handleSubmit(null, search)}
-                        disabled={isLoading}
-                      >
-                        <span className="chip-icon">★</span> {search}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {recentSearches.length > 0 && (
-                  <div className="suggestion-section">
-                    <span className="suggestion-label">최근 검색어</span>
-                    <div className="suggestion-chips">
-                      {recentSearches.map((search, idx) => (
-                        <div
-                          key={idx}
-                          className="chip chip-recent"
-                          onClick={() => handleSubmit(null, search)}
-                        >
-                          <span className="chip-text">
-                            <span className="chip-icon">⟲</span> {search}
-                          </span>
-                          <button
-                            className="delete-chip-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteRecentSearch(search);
-                            }}
-                            title="삭제"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <form className="chat-input-form" onSubmit={handleSubmit}>
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="예: 최근 7일간의 수질 데이터를 보여줘"
-                disabled={isLoading}
-                className="chat-input"
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                className="send-button"
-              >
-                {isLoading ? '⋯' : '→'}
-              </button>
-            </form>
-          </div>
+          <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSubmit={handleSubmit}
+            isLoading={isLoading}
+            popularSearches={popularSearches}
+            recentSearches={recentSearches}
+            handleDeleteRecentSearch={handleDeleteRecentSearch}
+            showSuggestions={messages.length === 0}
+          />
         </div>
       </div>
     </div>

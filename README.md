@@ -1,16 +1,69 @@
-# React + Vite
+# K-water 데이터 인텔리전스 (Natural Language to SQL)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+K-water 수질 데이터를 자연어로 조회하고, AI가 생성한 SQL 쿼리와 함께 시각화된 결과를 제공하는 인텔리전스 플랫폼입니다.
 
-Currently, two official plugins are available:
+## 🚀 프로젝트 개요
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+사용자가 자연어로 질문(예: "최근 7일간 수원지A의 pH 수치 보여줘")을 입력하면 AI가 의도를 분석하고 최적의 SQL을 생성합니다. 생성된 SQL을 실행하여 실시간 데이터 조회, 통계 분석, 차트 시각화 및 데이터 내보내기 기능을 제공합니다.
 
-## React Compiler
+## 🛠 기술 스택
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React 18, Vite
+- **Styling**: Vanilla CSS (자체 디자인 시스템)
+- **Visualization**: Recharts (데이터 시각화)
+- **Utility**: SQL Syntax Highlighting, Lucide Icons (or Emoji)
+- **Deployment**: Vite Dev Server
 
-## Expanding the ESLint configuration
+## 📂 프로젝트 구조 (Refactored)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+코드의 유지보수성과 확장성을 위해 기능별로 컴포넌트를 분리하고 비즈니스 로직을 유틸리티화하였습니다.
+
+```text
+src/
+├── components/           # UI 컴포넌트
+│   ├── ChatPanel/        # 채팅 인터페이스 관련
+│   │   ├── ChatPanel.jsx      # 메인 채팅 컨테이너
+│   │   ├── ChatSidebar.jsx    # 대화 히스토리/세션 관리
+│   │   ├── ChatMessage.jsx    # 개별 메시지 및 AI 추론 단계 표시
+│   │   └── ChatInput.jsx      # 검색 제안 및 입력 폼
+│   ├── ResultPanel/      # 데이터 결과 관련
+│   │   ├── SQLResultPanel.jsx # 메인 결과 컨테이너
+│   │   ├── ResultTabs.jsx     # 결과/차트/스키마/히스토리 탭
+│   │   ├── TableResults.jsx   # 데이터 그리드 및 무한 스크롤
+│   │   └── ChartDashboard.jsx # 데이터 시각화 대시보드
+│   ├── ResizableLayout.jsx    # 채팅/결과 패널 가변 레이아웃
+│   └── SQLHighlight.jsx       # SQL 구문 강조 컴포넌트
+├── utils/                # 비즈니스 로직 및 목업 데이터
+│   ├── chatUtils.js           # 질문 분석(NLP) 및 SQL 생성 로직
+│   └── resultUtils.js         # 데이터 생성, 스키마 정의, 엑셀 다운로드
+├── App.jsx               # 메인 애플리케이션 진입점
+└── index.css             # 글로벌 테마 및 디자인 시스템
+```
+
+## ✨ 주요 기능
+
+### 1. 지능형 챗봇 (Text-to-SQL)
+- **의도 분석**: 사용자의 자연어 질문에서 기간, 위치, 지표 등을 추출합니다.
+- **모호성 해결**: 질문이 모호할 경우 AI가 추가 정보(Clarification)를 요청합니다.
+- **생각하기 단계**: AI가 SQL을 생성하기까지의 논리적인 추론 과정을 단계별로 투명하게 공개합니다.
+- **SQL 생성 및 수정**: 대화 컨텍스트를 유지하여 "정렬 순서 바꿔줘"와 같은 피드백을 SQL에 즉각 반영합니다.
+
+### 2. 데이터 분석 패널 (Result Center)
+- **인피니티 스크롤**: 대량의 데이터를 효율적으로 조회할 수 있는 가상 스크롤링 테이블.
+- **다이내믹 차트**: 조회된 데이터를 바탕으로 pH, 탁도, 온도 등의 변화 추이를 자동 시각화합니다.
+- **컬럼 제어**: 보고 싶은 데이터 컬럼을 선택하거나 순서를 변경할 수 있습니다.
+- **스키마 뷰어**: 사용 가능한 테이블과 컬럼 정보를 확인할 수 있는 데이터 사전 기능.
+- **데이터 내보내기**: 조회 결과를 CSV(엑셀 호환) 형식으로 즉시 다운로드 가능합니다.
+
+## 🏃 시작하기
+
+```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+```
+
+---
+**K-water Advanced Agentic Coding Project**
