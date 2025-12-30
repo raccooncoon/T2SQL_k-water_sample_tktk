@@ -90,7 +90,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     const assistantMessageId = Date.now() + 1;
 
     // If clarification is needed, ask first
-    if (analysis.clarificationNeeded.length > 0 && Math.random() > 0.3) {
+    if (analysis.clarificationNeeded.length > 0) {
       const clarification = analysis.clarificationNeeded[0];
 
       setMessages(prev => [...prev, {
@@ -311,11 +311,14 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     } else if (lowerQuery.includes('모든') || lowerQuery.includes('전체')) {
       analysis.intent = 'all';
       analysis.assumptions.push('안전을 위해 최대 100개 행으로 제한하겠습니다.');
-    } else if (!analysis.isModification && !analysis.isFollowUp) {
+    } else if (lowerQuery.length < 5 ||
+      (lowerQuery.includes('수질') && lowerQuery.length < 10) ||
+      (lowerQuery.includes('데이터') && lowerQuery.length < 10) ||
+      (lowerQuery.includes('조회') && lowerQuery.length < 10)) {
       analysis.isAmbiguous = true;
       analysis.clarificationNeeded.push({
-        question: '어떤 작업을 원하시나요?',
-        options: ['데이터 조회', '통계 분석', '특정 조건 검색'],
+        question: '조회하고 싶은 구체적인 내용을 선택하시거나 직접 입력해주세요.',
+        options: ['최근 7일 전체 데이터', '위치별 평균 수질', '비정상 데이터 알림'],
         field: 'action'
       });
     }
@@ -424,10 +427,10 @@ LIMIT 10;`;
         <div className="header-top">
           <div className="header-content">
             <div className="header-title">
-              <img src="/kwater-logo.png" alt="K-water" className="app-logo" />
+              <img src="kwater-logo.png" alt="K-water" className="app-logo" />
               <div className="header-text">
                 <h2>수질 데이터 인텔리전스</h2>
-                <img src="/kwater-slogan2.png" alt="세상을 바꾸는 가치를 만듭니다" className="header-slogan" />
+                <img src="kwater-slogan2.png" alt="세상을 바꾸는 가치를 만듭니다" className="header-slogan" />
               </div>
             </div>
           </div>
@@ -510,7 +513,7 @@ LIMIT 10;`;
                     '👤'
                   ) : (
                     <div className="avatar-character">
-                      <img src="/CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
+                      <img src="CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
                     </div>
                   )}
                 </div>
