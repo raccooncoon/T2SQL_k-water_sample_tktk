@@ -30,7 +30,7 @@ function SQLResultPanel({ sql, executedSQL }) {
   }, []);
 
   // Primary columns that are shown by default
-  const primaryColumns = ['번호', '측정일시', '위치', 'pH수치', '평균_pH', '측정횟수'];
+  const primaryColumns = ['번호', '측정일시', '위치', 'pH수치', '탁도', '온도', '잔류염소', '평균_pH', '측정횟수'];
 
   // Initialize visible columns when results change
   useEffect(() => {
@@ -168,7 +168,11 @@ function SQLResultPanel({ sql, executedSQL }) {
         '위치': locations[i % 3],
         'pH수치': (6.5 + Math.random() * 1.5).toFixed(2),
         '탁도': (0.3 + Math.random() * 1.2).toFixed(2),
-        '온도': (12 + Math.random() * 8).toFixed(1)
+        '온도': (12 + Math.random() * 8).toFixed(1),
+        '잔류염소': (0.1 + Math.random() * 0.4).toFixed(3),
+        '총유기탄소': (1.0 + Math.random() * 2.5).toFixed(2),
+        '암모니아성질소': (0.01 + Math.random() * 0.1).toFixed(3),
+        '전기전도도': (150 + Math.random() * 300).toFixed(0)
       });
     }
 
@@ -186,6 +190,10 @@ function SQLResultPanel({ sql, executedSQL }) {
           { name: 'ph_level', type: 'DECIMAL(4,2)', key: '', nullable: true },
           { name: 'turbidity', type: 'DECIMAL(5,2)', key: '', nullable: true },
           { name: 'temperature', type: 'DECIMAL(5,2)', key: '', nullable: true },
+          { name: 'residual_chlorine', type: 'DECIMAL(5,3)', key: '', nullable: true },
+          { name: 'toc', type: 'DECIMAL(5,2)', key: '', nullable: true },
+          { name: 'ammonia_nitrogen', type: 'DECIMAL(5,3)', key: '', nullable: true },
+          { name: 'conductivity', type: 'INT', key: '', nullable: true },
         ],
         indexes: ['PRIMARY', 'idx_measurement_date', 'idx_location'],
         rowCount: 15420

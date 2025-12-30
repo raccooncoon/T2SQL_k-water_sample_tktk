@@ -1,4 +1,86 @@
 function SQLHighlight({ sql }) {
+  const formatSQL = (code) => {
+    if (!code) return '';
+
+    // Step 1: Clean up and normalize
+    let cleaned = code
+      .replace(/\s+/g, ' ')
+      .replace(/\s*,\s*/g, ', ')
+      .trim();
+
+    // Step 2: Define major keywords that start a new line
+    const majorKeywords = ['SELECT', 'FROM', 'WHERE', 'GROUP BY', 'ORDER BY', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN'];
+
+    // Create a regex for major keywords
+    const majorRegex = new RegExp(`\\b(${majorKeywords.join('|')})\\b`, 'gi');
+
+    // Add markers for splitting
+    let marked = cleaned.replace(majorRegex, '\n$1');
+
+    // Step 3: Split into major sections
+    const sections = marked.split('\n').filter(s => s.trim().length > 0);
+
+    const formattedLines = [];
+
+    sections.forEach(section => {
+      const trimmed = section.trim();
+      const firstWordMatch = trimmed.match(/^\S+/);
+      if (!firstWordMatch) return;
+      const firstWord = firstWordMatch[0].toUpperCase();
+
+      // Keywords are 7 chars + 1 space = 8 chars offset
+      if (firstWord === 'SELECT') {
+        const content = trimmed.substring(6).trim();
+        const columns = content.split(', ');
+
+        // Find max length for AS alignment
+        let maxLen = 0;
+        const colParts = columns.map(col => {
+          const parts = col.split(/\s+AS\s+/i);
+          if (parts.length > 1) {
+            maxLen = Math.max(maxLen, parts[0].length);
+          }
+          return parts;
+        });
+
+        colParts.forEach((parts, idx) => {
+          let line = idx === 0 ? 'SELECT ' : '       ';
+          if (parts.length > 1) {
+            line += parts[0].padEnd(maxLen) + ' AS ' + parts[1];
+          } else {
+            line += parts[0];
+          }
+          if (idx < colParts.length - 1) line += ',';
+          formattedLines.push(line);
+        });
+      }
+      else if (firstWord === 'WHERE') {
+        const content = trimmed.substring(6).trim();
+        const parts = content.split(/\s+AND\s+/i);
+        parts.forEach((part, idx) => {
+          if (idx === 0) formattedLines.push(`WHERE  ${part}`);
+          else formattedLines.push(`       AND ${part}`);
+        });
+      }
+      else if (firstWord === 'FROM') {
+        formattedLines.push(`FROM   ${trimmed.substring(5).trim()}`);
+      }
+      else if (firstWord === 'ORDER' || firstWord === 'GROUP') {
+        const keyword = trimmed.split(/\s+/).slice(0, 2).join(' ').toUpperCase();
+        const content = trimmed.split(/\s+/).slice(2).join(' ');
+        formattedLines.push(`${keyword.padEnd(7)} ${content}`);
+      }
+      else if (firstWord === 'LIMIT') {
+        formattedLines.push(`LIMIT  ${trimmed.substring(6).trim()}`);
+      }
+      else {
+        formattedLines.push(trimmed);
+      }
+    });
+
+    return formattedLines.join('\n');
+  };
+
   const highlightSQL = (code) => {
     const keywords = /\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|IS|NULL|ORDER BY|GROUP BY|HAVING|LIMIT|OFFSET|AS|DISTINCT|COUNT|SUM|AVG|MAX|MIN|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|DATABASE|INDEX|VIEW|UNION|CASE|WHEN|THEN|ELSE|END|WITH|RECURSIVE|INTERVAL|DATE_SUB|NOW|DESC|ASC)\b/gi;
     const strings = /('([^'\\]|\\.)*'|"([^"\\]|\\.)*")/g;
@@ -15,7 +97,7 @@ function SQLHighlight({ sql }) {
     result = result.replace(strings, '<span class="sql-string">$1</span>');
 
     // Keywords
-    result = result.replace(keywords, '<span class="sql-keyword">$1</span>');
+    result = result.replace(keywords, (match) => `<span class="sql-keyword">${match.toUpperCase()}</span>`);
 
     // Functions
     result = result.replace(functions, '<span class="sql-function">$1</span>');
@@ -26,9 +108,27 @@ function SQLHighlight({ sql }) {
     return result;
   };
 
+  const formattedSQL = formatSQL(sql);
+  const highlightedHTML = highlightSQL(formattedSQL);
+  const lines = highlightedHTML.split('\n');
+
   return (
     <pre className="sql-highlight">
-      <code dangerouslySetInnerHTML={{ __html: highlightSQL(sql) }} />
+      <div className="sql-header">
+        <span className="dot red"></span>
+        <span className="dot yellow"></span>
+        <span className="dot green"></span>
+        <span className="sql-lang-label">SQL</span>
+      </div>
+      <code className="sql-code-body">
+        {lines.map((line, idx) => (
+          <div
+            key={idx}
+            className="sql-line"
+            dangerouslySetInnerHTML={{ __html: line || '&nbsp;' }}
+          />
+        ))}
+      </code>
     </pre>
   );
 }

@@ -1,20 +1,68 @@
 .sql-highlight {
   margin: 0;
-  padding: 24px;
-  background: var(--code-bg);
+  padding: 0;
+  background: #1e1e1e;
   border-radius: 12px;
-  overflow-x: auto;
+  overflow: hidden;
   font-family: 'SF Mono', 'Monaco', 'Consolas', 'Courier New', monospace;
   font-size: 14px;
-  line-height: 1.8;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
+  line-height: 1.6;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.sql-highlight code {
+.sql-header {
+  height: 40px;
+  background: #2d2d2d;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.dot.red {
+  background: #ff5f56;
+}
+
+.dot.yellow {
+  background: #ffbd2e;
+}
+
+.dot.green {
+  background: #27c93f;
+}
+
+.sql-lang-label {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sql-code-body {
   display: block;
-  white-space: pre;
-  color: var(--code-text);
+  padding: 24px;
+  color: #d1d5db;
+}
+
+.sql-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  position: relative;
+  /* Pretty alignment for wrapped lines */
+  padding-left: 2rem;
+  text-indent: -2rem;
+  line-height: 1.8;
 }
 
 .sql-keyword {

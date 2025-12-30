@@ -18,15 +18,15 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState([
     '최근 7일간의 수질 데이터를 보여줘',
-    'pH 수치가 7.0 이상인 데이터',
-    '위치별 평균 탁도',
+    'pH 수치가 8.0 이상인 데이터',
+    '수원지A 평균 탁도',
   ]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [popularSearches] = useState([
-    '오늘 측정된 모든 데이터',
-    '지난 달 온도 평균',
+    '수질 데이터 평균 보여줘',
     '비정상 수질 데이터 찾기',
-    '위치별 수질 통계',
+    '지난 달 온도 통계',
+    '수원지B 최근 데이터',
   ]);
   const messagesEndRef = useRef(null);
 
@@ -92,14 +92,16 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     // If clarification is needed, ask first
     if (analysis.clarificationNeeded.length > 0) {
       const clarification = analysis.clarificationNeeded[0];
+      const otherNeedsCount = analysis.clarificationNeeded.length - 1;
 
       setMessages(prev => [...prev, {
         id: assistantMessageId,
         type: 'assistant',
-        content: `질문을 분석했습니다.\n\n${clarification.question}`,
+        content: `정확한 SQL 생성을 위해 추가 정보가 필요합니다.\n\n${clarification.question}` +
+          (otherNeedsCount > 0 ? `\n\n(이후에 ${otherNeedsCount}개의 추가 확인 사항이 더 있습니다.)` : ''),
         clarificationOptions: clarification.options,
         isWaitingForClarification: true,
-        originalQuery: userMessage.content,
+        originalQuery: queryText.trim(),
         timestamp: new Date()
       }]);
 
@@ -122,7 +124,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
       {
         text: '데이터베이스 스키마를 확인하고 있습니다...',
         delay: 700,
-        detail: '테이블: water_quality\n컬럼: id, measurement_date, location, ph_level, turbidity, temperature\n인덱스: idx_measurement_date, idx_location'
+        detail: '테이블: water_quality\n컬럼: id, measurement_date, location, ph_level, turbidity, temperature, residual_chlorine, toc, ammonia_nitrogen, conductivity\n인덱스: idx_measurement_date, idx_location'
       },
       {
         text: '최적의 SQL 쿼리를 생성하고 있습니다...',
@@ -142,19 +144,36 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
       thinkingSteps: thinkingSteps,
       currentStepIndex: 0,
       assumptions: analysis.assumptions,
-      timestamp: new Date()
     }]);
+
+    // Expand the first thinking step initially
+    setExpandedSteps(prev => ({ ...prev, [`${assistantMessageId}-0`]: true }));
 
     // Simulate sequential thinking process
     for (let i = 0; i < thinkingSteps.length; i++) {
       await new Promise(resolve => setTimeout(resolve, thinkingSteps[i].delay));
 
       if (i < thinkingSteps.length - 1) {
+        // Collapse current and expand next step
+        setExpandedSteps(prev => ({
+          ...prev,
+          [`${assistantMessageId}-${i}`]: false,
+          [`${assistantMessageId}-${i + 1}`]: true
+        }));
+
         setMessages(prev => prev.map(msg =>
           msg.id === assistantMessageId
             ? { ...msg, content: (analysis.assumptions.length > 0 ? '질문을 분석했습니다.' + assumptionMessage + '\n\n' : '') + thinkingSteps[i + 1].text, currentStepIndex: i + 1 }
             : msg
         ));
+      } else {
+        // Collapse the last step when thinking is complete
+        setTimeout(() => {
+          setExpandedSteps(prev => ({
+            ...prev,
+            [`${assistantMessageId}-${i}`]: false
+          }));
+        }, 500);
       }
     }
 
@@ -254,6 +273,10 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     }
   };
 
+  const handleDeleteRecentSearch = (searchToDelete) => {
+    setRecentSearches(prev => prev.filter(search => search !== searchToDelete));
+  };
+
   const analyzeQuery = (query) => {
     const lowerQuery = query.toLowerCase();
     const analysis = {
@@ -289,36 +312,73 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
       analysis.assumptions.push(`이전 질문 "${conversationContext.lastQuery}"을 참고하여 진행하겠습니다.`);
     }
 
-    // Check for time period ambiguity
-    if (lowerQuery.includes('최근') && !lowerQuery.match(/\d+/)) {
-      analysis.isAmbiguous = true;
-      analysis.clarificationNeeded.push({
-        question: '기간을 정확히 알려주시겠어요?',
-        options: ['최근 7일', '최근 1개월', '최근 3개월'],
-        field: 'period'
-      });
-      analysis.assumptions.push('최근 7일 데이터로 가정하고 진행하겠습니다.');
+    // 1. Check for time period ambiguity
+    if ((lowerQuery.includes('최근') || lowerQuery.includes('데이터')) && !lowerQuery.match(/\d+/) && !lowerQuery.includes('오늘') && !lowerQuery.includes('어제')) {
+      if (!lowerQuery.includes('7일') && !lowerQuery.includes('1개월') && !lowerQuery.includes('한달')) {
+        analysis.isAmbiguous = true;
+        analysis.clarificationNeeded.push({
+          question: '조회하고 싶은 기간을 가르쳐 주시겠습니까?',
+          options: ['최근 7일', '최근 1개월', '오늘 하루'],
+          field: 'period'
+        });
+        analysis.assumptions.push('기간이 명시되지 않아 최근 7일 데이터로 가정합니다.');
+      }
     }
 
-    // Check for aggregation type
+    // 2. Check for location ambiguity
+    if (lowerQuery.includes('수질') || lowerQuery.includes('데이터') || lowerQuery.includes('평균')) {
+      if (!lowerQuery.includes('수원지') && !lowerQuery.includes('모든') && !lowerQuery.includes('전체') && !lowerQuery.includes('위치')) {
+        analysis.isAmbiguous = true;
+        analysis.clarificationNeeded.push({
+          question: '어느 지역(수원지)의 데이터를 확인하시겠습니까?',
+          options: ['전체 지역', '수원지A', '수원지B'],
+          field: 'location'
+        });
+        analysis.assumptions.push('특정 위치가 지정되지 않아 전체 지역을 탐색합니다.');
+      }
+    }
+
+    // 3. Check for indicator ambiguity (when '평균' or '통계' is mentioned)
+    if (lowerQuery.includes('평균') || lowerQuery.includes('통계')) {
+      if (!lowerQuery.includes('ph') && !lowerQuery.includes('탁도') && !lowerQuery.includes('온도')) {
+        analysis.isAmbiguous = true;
+        analysis.clarificationNeeded.push({
+          question: '어떤 항목의 통계를 보시겠습니까?',
+          options: ['pH 수치', '탁도', '온도', '전체 항목'],
+          field: 'indicator'
+        });
+        analysis.assumptions.push('모든 수질 지표(pH, 탁도, 온도)의 요약 정보를 계산하겠습니다.');
+      }
+    }
+
+    // 4. Check for abnormality criteria
+    if (lowerQuery.includes('이상') || lowerQuery.includes('위험') || lowerQuery.includes('비정상') || lowerQuery.includes('문제')) {
+      if (!lowerQuery.match(/\d+/) && !lowerQuery.includes('기준')) {
+        analysis.isAmbiguous = true;
+        analysis.clarificationNeeded.push({
+          question: '비정상 데이터의 기준을 선택하시거나 직접 입력해 주세요.',
+          options: ['pH 8.5 이상', '탁도 0.5 NTU 이상', '온도 25도 이상'],
+          field: 'threshold'
+        });
+        analysis.assumptions.push('일반적인 수질 기준치를 넘는 데이터를 검색하겠습니다.');
+      }
+    }
+
+    // Determine intent if not ambiguous or as a fallback
     if (lowerQuery.includes('평균')) {
       analysis.intent = 'average';
-      if (!lowerQuery.includes('ph') && !lowerQuery.includes('수질') && !lowerQuery.includes('탁도')) {
-        analysis.assumptions.push('모든 수질 지표(pH, 탁도, 온도)의 평균을 계산하겠습니다.');
-      }
     } else if (lowerQuery.includes('최근') || lowerQuery.includes('조회')) {
       analysis.intent = 'recent';
     } else if (lowerQuery.includes('모든') || lowerQuery.includes('전체')) {
       analysis.intent = 'all';
-      analysis.assumptions.push('안전을 위해 최대 100개 행으로 제한하겠습니다.');
-    } else if (lowerQuery.length < 5 ||
-      (lowerQuery.includes('수질') && lowerQuery.length < 10) ||
-      (lowerQuery.includes('데이터') && lowerQuery.length < 10) ||
-      (lowerQuery.includes('조회') && lowerQuery.length < 10)) {
+    }
+
+    // Very short queries
+    if (lowerQuery.length < 3 && analysis.clarificationNeeded.length === 0) {
       analysis.isAmbiguous = true;
       analysis.clarificationNeeded.push({
-        question: '조회하고 싶은 구체적인 내용을 선택하시거나 직접 입력해주세요.',
-        options: ['최근 7일 전체 데이터', '위치별 평균 수질', '비정상 데이터 알림'],
+        question: '도움이 필요하신 내용을 선택하시겠어요?',
+        options: ['최근 수질 조회', '위치별 평균 통계', '수질 이상치 확인'],
         field: 'action'
       });
     }
@@ -329,96 +389,86 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
   const generateMockSQL = (query, analysis) => {
     const lowerQuery = query.toLowerCase();
 
+    // Default values
+    let selectClause = "SELECT id AS '번호', measurement_date AS '측정일시', location AS '위치', ph_level AS 'pH수치', turbidity AS '탁도', temperature AS '온도', residual_chlorine AS '잔류염소', toc AS '총유기탄소', ammonia_nitrogen AS '암모니아성질소', conductivity AS '전기전도도'";
+    let fromClause = "FROM water_quality";
+    let whereConditions = [];
+    let groupByClause = "";
+    let orderByClause = "ORDER BY measurement_date DESC";
+    let limitClause = "LIMIT 100";
+
     // Handle modification requests
     if (analysis.isModification && conversationContext.lastSQL) {
       const lastSQL = conversationContext.lastSQL;
-
-      // Modify LIMIT
       if (lowerQuery.includes('제한') || lowerQuery.includes('limit') || lowerQuery.match(/\d+개/)) {
         const limitMatch = query.match(/(\d+)/);
         const newLimit = limitMatch ? limitMatch[1] : '50';
         return lastSQL.replace(/LIMIT \d+/i, `LIMIT ${newLimit}`);
       }
-
-      // Add WHERE condition
-      if (lowerQuery.includes('추가') && lowerQuery.includes('조건')) {
-        if (lowerQuery.includes('수원지a') || lowerQuery.includes('수원지 a')) {
-          return lastSQL.replace(/WHERE/i, "WHERE location = '수원지A' AND");
-        }
-      }
-
-      // Change ORDER BY
       if (lowerQuery.includes('오름차순') || lowerQuery.includes('asc')) {
         return lastSQL.replace(/DESC/gi, 'ASC');
       } else if (lowerQuery.includes('내림차순') || lowerQuery.includes('desc')) {
         return lastSQL.replace(/ASC/gi, 'DESC');
       }
-
-      // Add GROUP BY
       if (lowerQuery.includes('그룹') || lowerQuery.includes('group')) {
         const baseSQL = lastSQL.replace(/ORDER BY.*$/i, '');
         return baseSQL + '\nGROUP BY location\nORDER BY location;';
       }
-
-      return lastSQL + '\n-- Modified based on your request';
     }
 
-    // Handle follow-up with context
-    if (analysis.isFollowUp && conversationContext.lastQuery) {
-      const combinedQuery = conversationContext.lastQuery + ' ' + query;
-      return generateMockSQL(combinedQuery, { ...analysis, isFollowUp: false });
+    // Parse Location
+    if (lowerQuery.includes('수원지a')) {
+      whereConditions.push("location = '수원지A'");
+    } else if (lowerQuery.includes('수원지b')) {
+      whereConditions.push("location = '수원지B'");
     }
 
-    // Standard query generation with Korean aliases
-    if (lowerQuery.includes('모든') || lowerQuery.includes('전체')) {
-      return `SELECT
-  id AS '번호',
-  measurement_date AS '측정일시',
-  location AS '위치',
-  ph_level AS 'pH수치',
-  turbidity AS '탁도',
-  temperature AS '온도'
-FROM water_quality
-ORDER BY measurement_date DESC
-LIMIT 100;`;
-    } else if (lowerQuery.includes('평균')) {
-      return `SELECT
-  measurement_date AS '측정일시',
-  AVG(ph_level) AS '평균_pH',
-  AVG(turbidity) AS '평균_탁도',
-  AVG(temperature) AS '평균_온도'
-FROM water_quality
-GROUP BY measurement_date
-ORDER BY measurement_date DESC;`;
+    // Parse Period
+    if (lowerQuery.includes('7일')) {
+      whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+    } else if (lowerQuery.includes('1개월') || lowerQuery.includes('한달')) {
+      whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+    } else if (lowerQuery.includes('오늘')) {
+      whereConditions.push("DATE(measurement_date) = CURDATE()");
     } else if (lowerQuery.includes('최근')) {
-      return `SELECT
-  id AS '번호',
-  measurement_date AS '측정일시',
-  location AS '위치',
-  ph_level AS 'pH수치',
-  turbidity AS '탁도',
-  temperature AS '온도'
-FROM water_quality
-WHERE measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-ORDER BY measurement_date DESC;`;
-    } else if (lowerQuery.includes('위치') || lowerQuery.includes('location')) {
-      return `SELECT
-  location AS '위치',
-  COUNT(*) AS '측정횟수',
-  AVG(ph_level) AS '평균_pH'
-FROM water_quality
-GROUP BY location;`;
+      whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
     }
-    return `SELECT
-  id AS '번호',
-  measurement_date AS '측정일시',
-  location AS '위치',
-  ph_level AS 'pH수치',
-  turbidity AS '탁도',
-  temperature AS '온도'
-FROM water_quality
-ORDER BY measurement_date DESC
-LIMIT 10;`;
+
+    // Parse Thresholds (Abnormalities)
+    if (lowerQuery.includes('ph 8.5 이상')) {
+      whereConditions.push("ph_level >= 8.5");
+    } else if (lowerQuery.includes('탁도 0.5')) {
+      whereConditions.push("turbidity >= 0.5");
+    } else if (lowerQuery.includes('온도 25')) {
+      whereConditions.push("temperature >= 25");
+    }
+
+    // Handle Aggregation / Intent
+    if (analysis.intent === 'average' || lowerQuery.includes('평균')) {
+      if (lowerQuery.includes('ph')) {
+        selectClause = "SELECT location AS '위치', AVG(ph_level) AS '평균_pH'";
+      } else if (lowerQuery.includes('탁도')) {
+        selectClause = "SELECT location AS '위치', AVG(turbidity) AS '평균_탁도'";
+      } else if (lowerQuery.includes('온도')) {
+        selectClause = "SELECT location AS '위치', AVG(temperature) AS '평균_온도'";
+      } else {
+        selectClause = "SELECT location AS '위치', AVG(ph_level) AS '평균_pH', AVG(turbidity) AS '평균_탁도', AVG(temperature) AS '평균_온도'";
+      }
+      groupByClause = "GROUP BY location";
+      orderByClause = "ORDER BY location";
+    }
+
+    // Construct Final SQL
+    let finalSQL = `${selectClause}\n${fromClause}`;
+    if (whereConditions.length > 0) {
+      finalSQL += `\nWHERE ${whereConditions.join('\n  AND ')}`;
+    }
+    if (groupByClause) {
+      finalSQL += `\n${groupByClause}`;
+    }
+    finalSQL += `\n${orderByClause}\n${limitClause};`;
+
+    return finalSQL;
   };
 
   return (
@@ -429,7 +479,7 @@ LIMIT 10;`;
             <div className="header-title">
               <img src="kwater-logo.png" alt="K-water" className="app-logo" />
               <div className="header-text">
-                <h2>수질 데이터 인텔리전스</h2>
+                <h2>K-water 데이터 인텔리전스</h2>
                 <img src="kwater-slogan2.png" alt="세상을 바꾸는 가치를 만듭니다" className="header-slogan" />
               </div>
             </div>
@@ -592,10 +642,6 @@ LIMIT 10;`;
                             };
                             setMessages(prev => [...prev, choiceMessage]);
 
-                            // Continue with the original query + clarification
-                            const enhancedQuery = `${message.originalQuery} (${option})`;
-                            setInput(enhancedQuery);
-
                             // Mark the clarification as resolved
                             setMessages(prev => prev.map(msg =>
                               msg.id === message.id
@@ -603,10 +649,9 @@ LIMIT 10;`;
                                 : msg
                             ));
 
-                            // Trigger a new submission
-                            setTimeout(() => {
-                              document.querySelector('.chat-input-form').requestSubmit();
-                            }, 100);
+                            // Trigger a new submission with combined context
+                            const combinedQuery = `${message.originalQuery} ${option}`;
+                            handleSubmit(null, combinedQuery);
                           }}
                         >
                           {option}
@@ -675,14 +720,25 @@ LIMIT 10;`;
                     <span className="suggestion-label">최근 검색어</span>
                     <div className="suggestion-chips">
                       {recentSearches.map((search, idx) => (
-                        <button
+                        <div
                           key={idx}
                           className="chip chip-recent"
                           onClick={() => handleSubmit(null, search)}
-                          disabled={isLoading}
                         >
-                          <span className="chip-icon">⟲</span> {search}
-                        </button>
+                          <span className="chip-text">
+                            <span className="chip-icon">⟲</span> {search}
+                          </span>
+                          <button
+                            className="delete-chip-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRecentSearch(search);
+                            }}
+                            title="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
