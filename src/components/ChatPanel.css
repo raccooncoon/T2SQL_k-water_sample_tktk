@@ -85,6 +85,33 @@
   gap: 12px;
 }
 
+.header-new-chat-btn {
+  padding: 8px 16px;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.header-new-chat-btn:hover {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.header-new-chat-btn span {
+  font-size: 18px;
+  font-weight: 300;
+}
+
 .theme-toggle {
   width: 36px;
   height: 36px;

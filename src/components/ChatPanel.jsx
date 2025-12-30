@@ -3,7 +3,7 @@ import './ChatPanel.css';
 import SQLHighlight from './SQLHighlight';
 import './SQLHighlight.css';
 
-function ChatPanel({ onSQLGenerate, onSQLExecute }) {
+function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -237,6 +237,13 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
     if (onSQLGenerate) {
       onSQLGenerate(sqlQuery);
     }
+  };
+
+  const startNewChat = () => {
+    setMessages([]);
+    setActiveSessionId(null);
+    setIsSidebarOpen(false);
+    if (onNewChat) onNewChat();
   };
 
   const handleExecuteSQL = async (sql, messageId) => {
@@ -485,6 +492,9 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
             </div>
           </div>
           <div className="header-actions">
+            <button className="header-new-chat-btn" onClick={startNewChat} title="새 채팅 시작">
+              <span>+</span> 새 채팅
+            </button>
             <button
               className="theme-toggle"
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -506,10 +516,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute }) {
             >
               ⇠
             </button>
-            <button className="new-chat-btn" onClick={() => {
-              setMessages([]);
-              setActiveSessionId(null);
-            }}>
+            <button className="new-chat-btn" onClick={startNewChat}>
               <span>+</span> 새 채팅
             </button>
           </div>

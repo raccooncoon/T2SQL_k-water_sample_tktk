@@ -30,6 +30,7 @@ function App() {
           <ChatPanel
             onSQLGenerate={handleSQLGenerate}
             onSQLExecute={handleSQLExecute}
+            onNewChat={() => setShowResultPanel(false)}
           />
         }
         rightPanel={
