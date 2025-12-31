@@ -30,6 +30,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
     '탁도가 0.5 이하인 깨끗한 물',
   ]);
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const loadedSessionRef = useRef(null); // Track which session acts as the 'owner' of the current messages
   const [popularSearches] = useState([
     '수질 데이터 평균 보여줘',
     '비정상 수질 데이터 찾기',
@@ -64,6 +65,27 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
     scrollToBottom();
   }, [messages]);
 
+  // Phase 1: Guard - Update loadedSessionRef only when messages change.
+  // This explicitly marks determining "which session these messages belong to".
+  // IMPORTANT: Do NOT include activeSessionId in dependency. We only want to update ownership when CONTENT changes.
+  useEffect(() => {
+    if (activeSessionId) {
+      loadedSessionRef.current = activeSessionId;
+    }
+  }, [messages]); // Intentionally exclude activeSessionId to prevent premature updates during switch
+
+  // Phase 2: Sync - Only sync if the active session matches the loaded message owner.
+  // This prevents syncing stale messages (from previous session) to the new active session ID.
+  useEffect(() => {
+    if (activeSessionId && activeSessionId === loadedSessionRef.current && messages.length > 0) {
+      setChatSessions(prev => prev.map(session =>
+        session.id === activeSessionId
+          ? { ...session, messages: [...messages], lastMessage: messages[messages.length - 1].content }
+          : session
+      ));
+    }
+  }, [messages, activeSessionId]);
+
   const handleSubmit = async (e, presetQuery = null) => {
     if (e) e.preventDefault();
     const queryText = presetQuery || input;
@@ -76,14 +98,17 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
 
     // Create a new session if this is the first message
     if (messages.length === 0 && !activeSessionId) {
+      const newSessionId = Date.now();
       const newSession = {
-        id: Date.now(),
+        id: newSessionId,
         title: queryText.trim().substring(0, 20) + (queryText.trim().length > 20 ? '...' : ''),
         lastMessage: queryText.trim(),
-        timestamp: new Date()
+        timestamp: new Date(),
+        messages: [] // Initialize with empty messages
       };
       setChatSessions(prev => [newSession, ...prev]);
-      setActiveSessionId(newSession.id);
+      setActiveSessionId(newSessionId);
+      // loadedSessionRef will be updated by Phase 1 useEffect after messages update
     }
 
     const userMessage = {
@@ -251,7 +276,48 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
     setMessages([]);
     setActiveSessionId(null);
     setIsSidebarOpen(false);
+
+    // Reset view (close result panel)
     if (onNewChat) onNewChat();
+
+    // Scroll to top for new chat
+    setTimeout(() => {
+      const messagesArea = document.querySelector('.chat-messages');
+      if (messagesArea) {
+        messagesArea.scrollTop = 0;
+      }
+    }, 0);
+  };
+
+  const handleSessionSelect = (sessionId) => {
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (session) {
+      console.log(`[ChatPanel] Switching to session ${sessionId}`);
+      setActiveSessionId(sessionId);
+      setMessages(session.messages || []);
+
+      // Reset view (close result panel) when switching sessions
+      if (onNewChat) onNewChat();
+
+      // Scroll to top for switched session
+      setTimeout(() => {
+        const messagesArea = document.querySelector('.chat-messages');
+        if (messagesArea) {
+          messagesArea.scrollTop = 0;
+        }
+      }, 0);
+    }
+  };
+
+  const handleDeleteSession = (e, sessionId) => {
+    e.stopPropagation(); // Prevents selecting session before deleting
+
+    setChatSessions(prev => prev.filter(s => s.id !== sessionId));
+
+    // If deleted session was active, start new chat
+    if (activeSessionId === sessionId) {
+      startNewChat();
+    }
   };
 
   const handleExecuteSQL = async (sql, messageId) => {
@@ -370,7 +436,8 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
         <ChatSidebar
           chatSessions={chatSessions}
           activeSessionId={activeSessionId}
-          setActiveSessionId={setActiveSessionId}
+          setActiveSessionId={handleSessionSelect}
+          onDeleteSession={handleDeleteSession}
           setIsSidebarOpen={setIsSidebarOpen}
           startNewChat={startNewChat}
         />

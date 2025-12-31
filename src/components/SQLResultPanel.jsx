@@ -118,6 +118,7 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
   // Load history query results
   const loadHistoryQuery = (historyItem) => {
     setAllResults(historyItem.results);
+    setActiveTab('results');
   };
 
   // Load more data when scrolling

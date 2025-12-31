@@ -283,6 +283,32 @@
   color: var(--text-tertiary);
 }
 
+.session-delete-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.session-item:hover .session-delete-btn {
+  opacity: 0.6;
+}
+
+.session-delete-btn:hover {
+  opacity: 1 !important;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
 .empty-history {
   padding: 20px 12px;
   font-size: 12px;

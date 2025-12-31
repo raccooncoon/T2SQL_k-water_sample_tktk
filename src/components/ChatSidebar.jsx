@@ -4,6 +4,7 @@ const ChatSidebar = ({
     chatSessions,
     activeSessionId,
     setActiveSessionId,
+    onDeleteSession,
     setIsSidebarOpen,
     startNewChat
 }) => {
@@ -42,6 +43,13 @@ const ChatSidebar = ({
                                             }
                                         </div>
                                     </div>
+                                    <button
+                                        className="session-delete-btn"
+                                        onClick={(e) => onDeleteSession(e, session.id)}
+                                        title="대화 삭제"
+                                    >
+                                        ×
+                                    </button>
                                 </div>
                             ))
                         ) : (
