@@ -21,7 +21,7 @@ const PRIMARY_COLUMNS = [
   '시설ID', '시설명', '가동상태', '최근점검일', '가동률', '담당자' // facility_status
 ];
 
-function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedback, onFeedbackUpdate }) {
+function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedback, onFeedbackUpdate, globalComments, onCommentUpdate }) {
   const [allResults, setAllResults] = useState([]);
   const [displayedResults, setDisplayedResults] = useState([]);
   const [queryHistory, setQueryHistory] = useState([]);
@@ -434,6 +434,10 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedb
                           ? globalFeedback[item.query]
                           : item.feedback}
                         onFeedback={(type) => handleHistoryFeedback(item.query, type)}
+                        feedbackComment={(globalComments && Object.prototype.hasOwnProperty.call(globalComments, item.query))
+                          ? globalComments[item.query]
+                          : ''}
+                        onFeedbackComment={(comment) => onCommentUpdate && onCommentUpdate(item.query, comment)}
                       />
                     </div>
                     <div className="history-action">

@@ -109,3 +109,35 @@
     background: rgba(255, 255, 255, 0.1);
     color: white;
 }
+
+.feedback-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+
+.feedback-memo-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #a1a1aa;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0.5;
+}
+
+.feedback-memo-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    opacity: 1;
+}
+
+.feedback-memo-btn.active {
+    color: #3b82f6;
+    opacity: 1;
+}

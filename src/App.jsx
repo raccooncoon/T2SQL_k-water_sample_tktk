@@ -11,6 +11,7 @@ function App() {
   const [showResultPanel, setShowResultPanel] = useState(false)
   const [activeTab, setActiveTab] = useState('results')
   const [globalFeedback, setGlobalFeedback] = useState({}) // { queryContent: 'good'|'bad' }
+  const [globalComments, setGlobalComments] = useState({}) // { queryContent: 'comment text' }
 
   const handleSQLGenerate = (sql) => {
     setGeneratedSQL(sql)
@@ -49,6 +50,11 @@ function App() {
     });
   }
 
+  // Handle comment updates
+  const handleGlobalComment = (query, comment) => {
+    setGlobalComments(prev => ({ ...prev, [query]: comment }));
+  }
+
   return (
     <div className="app-container">
       <PanelToggleButton
@@ -64,6 +70,8 @@ function App() {
             onNewChat={() => setShowResultPanel(false)}
             globalFeedback={globalFeedback}
             onFeedbackUpdate={handleGlobalFeedback}
+            globalComments={globalComments}
+            onCommentUpdate={handleGlobalComment}
           />
         }
         rightPanel={
@@ -74,6 +82,8 @@ function App() {
             setActiveTab={setActiveTab}
             globalFeedback={globalFeedback}
             onFeedbackUpdate={handleGlobalFeedback}
+            globalComments={globalComments}
+            onCommentUpdate={handleGlobalComment}
           />
         }
         showRightPanel={showResultPanel}

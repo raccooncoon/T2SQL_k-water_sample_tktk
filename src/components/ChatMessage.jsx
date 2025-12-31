@@ -9,7 +9,8 @@ const ChatMessage = ({
     setInput,
     handleClarification,
     handleCheckResults,
-    handleFeedback
+    handleFeedback,
+    onFeedbackComment
 }) => {
     return (
         <div className={`message ${message.type} ${message.isThinking ? 'thinking' : ''} ${message.isSuccess ? 'success' : ''}`}>
@@ -18,7 +19,7 @@ const ChatMessage = ({
                     '👤'
                 ) : (
                     <div className="avatar-character">
-                        <img src="CI_캐릭터.jpg" alt="K-water AI" className="avatar-logo" />
+                        <img src="avata.png" alt="K-water AI" className="avatar-logo" />
                     </div>
                 )}
             </div>
@@ -88,6 +89,8 @@ const ChatMessage = ({
                                 sql={message.sql}
                                 feedback={message.feedback}
                                 onFeedback={(type) => handleFeedback(message.id, type)}
+                                feedbackComment={message.feedbackComment}
+                                onFeedbackComment={(comment) => onFeedbackComment && onFeedbackComment(message.id, comment)}
                             />
                         </div>
                     )}

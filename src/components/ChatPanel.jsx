@@ -7,7 +7,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { analyzeQuery, generateMockSQL } from '../utils/chatUtils';
 
-function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat, globalFeedback, onFeedbackUpdate }) {
+function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat, globalFeedback, onFeedbackUpdate, globalComments, onCommentUpdate }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -410,9 +410,13 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat, globa
         ? { ...msg, feedback: feedbackType } // 'good' or 'bad'
         : msg
     ));
+  };
 
-    // Feedback is automatically synced to chatSessions via the existing useEffect hook
-    // because it watches [messages] and [activeSessionId].
+  const handleFeedbackComment = (messageId, comment) => {
+    const targetMsg = messages.find(m => m.id === messageId);
+    if (targetMsg && targetMsg.sql && onCommentUpdate) {
+      onCommentUpdate(targetMsg.sql, comment);
+    }
   };
 
   const handleDeleteRecentSearch = (searchToDelete) => {
@@ -490,7 +494,10 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat, globa
                   // Override feedback with global state if the key exists (even if null)
                   feedback: (message.sql && globalFeedback && Object.prototype.hasOwnProperty.call(globalFeedback, message.sql))
                     ? globalFeedback[message.sql]
-                    : message.feedback
+                    : message.feedback,
+                  feedbackComment: (message.sql && globalComments && Object.prototype.hasOwnProperty.call(globalComments, message.sql))
+                    ? globalComments[message.sql]
+                    : ''
                 }}
                 expandedSteps={expandedSteps}
                 setExpandedSteps={setExpandedSteps}
@@ -499,6 +506,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat, globa
                 handleClarification={handleClarification}
                 handleCheckResults={handleCheckResults}
                 handleFeedback={handleFeedback}
+                onFeedbackComment={handleFeedbackComment}
               />
             ))}
             <div ref={messagesEndRef} />

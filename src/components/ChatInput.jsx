@@ -21,7 +21,7 @@ const ChatInput = ({
                                 <button
                                     key={idx}
                                     className="chip"
-                                    onClick={() => handleSubmit(null, search)}
+                                    onClick={() => setInput(search)}
                                     disabled={isLoading}
                                 >
                                     <span className="chip-icon">★</span> {search}
