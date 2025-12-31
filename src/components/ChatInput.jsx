@@ -37,7 +37,7 @@ const ChatInput = ({
                                     <div
                                         key={idx}
                                         className="chip chip-recent"
-                                        onClick={() => handleSubmit(null, search)}
+                                        onClick={() => setInput(search)}
                                     >
                                         <span className="chip-text">
                                             <span className="chip-icon">⟲</span> {search}

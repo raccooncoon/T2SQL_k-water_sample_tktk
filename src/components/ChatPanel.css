@@ -1033,14 +1033,19 @@
 
 .suggestion-chips {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   gap: 8px;
-  max-height: 100px;
-  /* Slightly increased to account for padding */
-  padding: 8px 0;
-  /* Prevent clipping of hover effects and delete buttons */
-  overflow: hidden;
+  overflow-x: auto;
+  padding: 8px 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.suggestion-chips::-webkit-scrollbar {
+  display: none;
+  /* Chrome/Safari */
 }
 
 .chip {
