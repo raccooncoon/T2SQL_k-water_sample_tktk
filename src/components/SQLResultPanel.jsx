@@ -19,13 +19,12 @@ const PRIMARY_COLUMNS = [
   '시설ID', '시설명', '가동상태', '최근점검일', '가동률', '담당자' // facility_status
 ];
 
-function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
-  const [activeTab, setActiveTab] = useState('results');
-  const [allResults, setAllResults] = useState(generateAllMockResults());
+function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
+  const [allResults, setAllResults] = useState([]);
   const [displayedResults, setDisplayedResults] = useState([]);
   const [page, setPage] = useState(0);
   const [queryHistory, setQueryHistory] = useState([]);
-  const [schemaData] = useState(generateSchemaData());
+  const [schemaData, setSchemaData] = useState([]);
   const [visibleColumns, setVisibleColumns] = useState([]);
   const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
   const tableContainerRef = useRef(null);
@@ -33,12 +32,7 @@ function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
   const columnPickerRef = useRef(null);
   const processedExecutionRef = useRef(null);
 
-  // Switch to results tab only when explicitly triggered (e.g., button click)
-  useEffect(() => {
-    if (resultTabTrigger > 0) {
-      setActiveTab('results');
-    }
-  }, [resultTabTrigger]);
+  // Switch to results tab logic moved to App.jsx handleShowResult
 
   // Close column picker when clicking outside
   useEffect(() => {
@@ -82,10 +76,21 @@ function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
         targetTable = 'facility_status';
       }
 
-      const newResults = getMockData(targetTable);
+      let newResults = getMockData(targetTable);
+
+      // Parse and apply LIMIT if present
+      const limitMatch = sqlQuery.match(/\bLIMIT\s+(\d+)\b/i);
+      if (limitMatch && limitMatch[1]) {
+        const limit = parseInt(limitMatch[1], 10);
+        newResults = newResults.slice(0, limit);
+      }
+
       setAllResults(newResults);
-      setPage(0);
-      setDisplayedResults(newResults.slice(0, 20));
+
+      // Update schema context
+      const fullSchema = generateSchemaData();
+      const filteredSchema = fullSchema.filter(t => t.table === targetTable);
+      setSchemaData(filteredSchema);
 
       setQueryHistory(prev => {
         // Check if this execution is already in history (deduplication)
@@ -109,18 +114,16 @@ function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
     }
   }, [executedSQL]);
 
-  // Wait, I should verify the `useState` line first.
-  // Replacing the useEffect logic and the useState definition in one go if possible.
-
 
   // Load history query results
   const loadHistoryQuery = (historyItem) => {
-    setActiveTab('results');
     setAllResults(historyItem.results);
   };
 
   // Load more data when scrolling
   const loadMoreResults = useCallback(() => {
+    if (displayedResults.length >= allResults.length) return;
+
     const nextPage = page + 1;
     const start = nextPage * 20;
     const end = start + 20;
@@ -129,29 +132,27 @@ function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
       setDisplayedResults(prev => [...prev, ...allResults.slice(start, end)]);
       setPage(nextPage);
     }
-  }, [page, allResults]);
+  }, [page, allResults.length, displayedResults.length]);
 
-  // Intersection Observer for infinite scroll
+  // Unified Infinite Scroll Observer
   useEffect(() => {
+    if (activeTab !== 'results' || displayedResults.length >= allResults.length) return;
+
+    const sentinel = document.getElementById('scroll-sentinel');
+    if (!sentinel) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           loadMoreResults();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '100px' }
     );
-    observerRef.current = observer;
-    return () => observerRef.current?.disconnect();
-  }, [loadMoreResults]);
 
-  useEffect(() => {
-    const sentinel = document.getElementById('scroll-sentinel');
-    if (sentinel && observerRef.current) {
-      observerRef.current.observe(sentinel);
-    }
-    return () => observerRef.current?.disconnect();
-  }, [displayedResults]);
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [activeTab, displayedResults.length, allResults.length, loadMoreResults]);
 
   // Toggle column visibility
   const toggleColumn = (column) => {
@@ -310,35 +311,42 @@ function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
 
         {activeTab === 'schema' && (
           <div className="schema-view">
-            <div className="schema-list">
-              {schemaData.map((table, idx) => (
-                <div key={idx} className="schema-table">
-                  <div className="table-header">
-                    <div className="table-name">
-                      <span className="icon">▪</span>
-                      <strong>{table.table}</strong>
-                    </div>
-                    <span className="row-count">{table.rowCount.toLocaleString()}개 행</span>
-                  </div>
-                  <div className="table-columns">
-                    {table.columns.map((col, i) => (
-                      <div key={i} className="column-row">
-                        <span className={`column-name ${col.key ? 'key' : ''}`}>
-                          {col.key === 'PRI' && '● '}
-                          {col.key === 'MUL' && '○ '}
-                          {col.name}
-                        </span>
-                        <span className="column-type">{col.type}</span>
-                        {!col.nullable && <span className="not-null">필수</span>}
+            {schemaData.length > 0 ? (
+              <div className="schema-list">
+                {schemaData.map((table, idx) => (
+                  <div key={idx} className="schema-table">
+                    <div className="table-header">
+                      <div className="table-name">
+                        <span className="icon">▪</span>
+                        <strong>{table.table}</strong>
                       </div>
-                    ))}
+                      <span className="row-count">{table.rowCount.toLocaleString()}개 행</span>
+                    </div>
+                    <div className="table-columns">
+                      {table.columns.map((col, i) => (
+                        <div key={i} className="column-row">
+                          <span className={`column-name ${col.key ? 'key' : ''}`}>
+                            {col.key === 'PRI' && '● '}
+                            {col.key === 'MUL' && '○ '}
+                            {col.name}
+                          </span>
+                          <span className="column-type">{col.type}</span>
+                          {!col.nullable && <span className="not-null">필수</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="table-indexes">
+                      <strong>인덱스:</strong> {table.indexes.join(', ')}
+                    </div>
                   </div>
-                  <div className="table-indexes">
-                    <strong>인덱스:</strong> {table.indexes.join(', ')}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <span className="empty-icon">⊟</span>
+                <p>SQL을 실행하면 해당 테이블의 스키마 정보가 여기에 표시됩니다</p>
+              </div>
+            )}
           </div>
         )}
 

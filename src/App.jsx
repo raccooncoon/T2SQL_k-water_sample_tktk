@@ -3,12 +3,13 @@ import './App.css'
 import ResizableLayout from './components/ResizableLayout'
 import ChatPanel from './components/ChatPanel'
 import SQLResultPanel from './components/SQLResultPanel'
+import PanelToggleButton from './components/PanelToggleButton'
 
 function App() {
   const [generatedSQL, setGeneratedSQL] = useState(null)
   const [executedSQL, setExecutedSQL] = useState(null)
   const [showResultPanel, setShowResultPanel] = useState(false)
-  const [resultTabTrigger, setResultTabTrigger] = useState(0)
+  const [activeTab, setActiveTab] = useState('results')
 
   const handleSQLGenerate = (sql) => {
     setGeneratedSQL(sql)
@@ -28,12 +29,21 @@ function App() {
     if (sqlData) {
       setExecutedSQL(sqlData);
     }
-    setResultTabTrigger(prev => prev + 1);
+
+    // Only reset to 'results' tab if the panel was closed
+    if (!showResultPanel) {
+      setActiveTab('results');
+    }
+
     setShowResultPanel(true)
   }
 
   return (
     <div className="app-container">
+      <PanelToggleButton
+        isOpen={showResultPanel}
+        onClick={() => setShowResultPanel(!showResultPanel)}
+      />
       <ResizableLayout
         leftPanel={
           <ChatPanel
@@ -47,7 +57,8 @@ function App() {
           <SQLResultPanel
             sql={generatedSQL}
             executedSQL={executedSQL}
-            resultTabTrigger={resultTabTrigger}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
           />
         }
         showRightPanel={showResultPanel}

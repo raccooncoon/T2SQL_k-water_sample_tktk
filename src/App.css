@@ -11,6 +11,112 @@
   flex-direction: column;
 }
 
+/* Result Panel Toggle Button - Premium Accent Handle */
+.panel-toggle-btn {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+
+  /* Vibrant Accent Background */
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: none;
+
+  padding: 24px 0;
+  border-radius: 16px 0 0 16px;
+  cursor: pointer;
+  box-shadow: -4px 0 30px rgba(37, 99, 235, 0.25);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 28px;
+}
+
+.panel-toggle-btn:hover {
+  width: 140px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: -8px 0 35px rgba(37, 99, 235, 0.4);
+}
+
+.panel-toggle-btn.open {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  box-shadow: -4px 0 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Specific position adjustments for when panel is open might be needed 
+   depending on how ResizableLayout behaves. Since it's fixed, 
+   we might want it to feel like it's attached to the panel edge. */
+
+.panel-toggle-btn.open:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: -8px 0 35px rgba(220, 38, 38, 0.35);
+}
+
+.btn-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  padding-left: 10px;
+}
+
+.toggle-icon {
+  font-size: 11px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  transition: transform 0.4s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.panel-toggle-btn.open .toggle-icon {
+  color: white;
+}
+
+.toggle-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: -0.02em;
+}
+
+.panel-toggle-btn:hover .toggle-text {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.panel-toggle-btn:hover .toggle-icon {
+  transform: scale(1.3) translateX(-2px);
+}
+
+/* Subtle pulse glow for the handle */
+@keyframes handlePulse {
+  0% {
+    box-shadow: -4px 0 30px rgba(37, 99, 235, 0.2);
+  }
+
+  50% {
+    box-shadow: -4px 0 40px rgba(37, 99, 235, 0.4);
+  }
+
+  100% {
+    box-shadow: -4px 0 30px rgba(37, 99, 235, 0.2);
+  }
+}
+
+.panel-toggle-btn:not(.open) {
+  animation: handlePulse 3s infinite ease-in-out;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
