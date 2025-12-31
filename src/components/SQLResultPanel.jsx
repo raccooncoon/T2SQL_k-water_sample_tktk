@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import './SQLResultPanel.css';
+import './SQLResultPanel_Feedback.css';
 import SQLHighlight from './SQLHighlight';
 import './SQLHighlight.css';
+import './SQLHighlight_Header.css'; // Import feedback styles
 import ResultTabs from './ResultTabs';
 import TableResults from './TableResults';
 import ChartDashboard from './ChartDashboard';
@@ -19,10 +21,9 @@ const PRIMARY_COLUMNS = [
   '시설ID', '시설명', '가동상태', '최근점검일', '가동률', '담당자' // facility_status
 ];
 
-function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
+function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedback, onFeedbackUpdate }) {
   const [allResults, setAllResults] = useState([]);
   const [displayedResults, setDisplayedResults] = useState([]);
-  const [page, setPage] = useState(0);
   const [queryHistory, setQueryHistory] = useState([]);
   const [schemaData, setSchemaData] = useState([]);
   const [visibleColumns, setVisibleColumns] = useState([]);
@@ -47,8 +48,7 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
 
   // Sync displayed results when allResults changes
   useEffect(() => {
-    setDisplayedResults(allResults.slice(0, 20));
-    setPage(0);
+    setDisplayedResults(allResults.slice(0, 20)); // Initial load
     if (tableContainerRef.current) {
       tableContainerRef.current.scrollTop = 0;
     }
@@ -115,6 +115,13 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
   }, [executedSQL]);
 
 
+  // Handle feedback in history (Global Sync)
+  const handleHistoryFeedback = (queryContent, type) => {
+    if (onFeedbackUpdate) {
+      onFeedbackUpdate(queryContent, type);
+    }
+  };
+
   // Load history query results
   const loadHistoryQuery = (historyItem) => {
     setAllResults(historyItem.results);
@@ -122,18 +129,19 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
   };
 
   // Load more data when scrolling
+  // UPDATED: Use length-based calculation instead of 'page' state to prevent gaps/sync issues
   const loadMoreResults = useCallback(() => {
-    if (displayedResults.length >= allResults.length) return;
+    const currentLength = displayedResults.length;
+    if (currentLength >= allResults.length) return;
 
-    const nextPage = page + 1;
-    const start = nextPage * 20;
+    const start = currentLength;
     const end = start + 20;
 
-    if (start < allResults.length) {
-      setDisplayedResults(prev => [...prev, ...allResults.slice(start, end)]);
-      setPage(nextPage);
+    const nextBatch = allResults.slice(start, end);
+    if (nextBatch.length > 0) {
+      setDisplayedResults(prev => [...prev, ...nextBatch]);
     }
-  }, [page, allResults.length, displayedResults.length]);
+  }, [allResults, displayedResults.length]);
 
   // Unified Infinite Scroll Observer
   useEffect(() => {
@@ -177,12 +185,6 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
   return (
     <div className="sql-result-panel">
       <div className="panel-header-container">
-        <ResultTabs
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          hasExecutedSQL={!!executedSQL}
-        />
-
         <div className="panel-sub-header">
           {activeTab === 'results' && (
             <>
@@ -272,6 +274,12 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
             </>
           )}
         </div>
+
+        <ResultTabs
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          hasExecutedSQL={!!executedSQL}
+        />
       </div>
 
       <div className="panel-content">
@@ -372,9 +380,9 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
                           hour12: false
                         }).replace(/(\d{4})-(\d{2})-(\d{2})/, '$1.$2.$3')}
                       </span>
-                      <span className="history-stats">
-                        ⚡ {item.executionTime} • {item.rowCount}개 행
-                      </span>
+                      <div className="history-stats" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>⚡ {item.executionTime} • {item.rowCount}개 행</span>
+                      </div>
                     </div>
                     {item.originalQuery && (
                       <div className="history-question">
@@ -383,7 +391,13 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab }) {
                       </div>
                     )}
                     <div className="history-query-wrapper">
-                      <SQLHighlight sql={item.query} />
+                      <SQLHighlight
+                        sql={item.query}
+                        feedback={(globalFeedback && Object.prototype.hasOwnProperty.call(globalFeedback, item.query))
+                          ? globalFeedback[item.query]
+                          : item.feedback}
+                        onFeedback={(type) => handleHistoryFeedback(item.query, type)}
+                      />
                     </div>
                     <div className="history-action">
                       <button

@@ -8,7 +8,8 @@ const ChatMessage = ({
     handleExecuteSQL,
     setInput,
     handleClarification,
-    handleCheckResults
+    handleCheckResults,
+    handleFeedback
 }) => {
     return (
         <div className={`message ${message.type} ${message.isThinking ? 'thinking' : ''} ${message.isSuccess ? 'success' : ''}`}>
@@ -83,7 +84,11 @@ const ChatMessage = ({
 
                     {message.sql && !message.streamedSQL && (
                         <div className="sql-preview-wrapper">
-                            <SQLHighlight sql={message.sql} />
+                            <SQLHighlight
+                                sql={message.sql}
+                                feedback={message.feedback}
+                                onFeedback={(type) => handleFeedback(message.id, type)}
+                            />
                         </div>
                     )}
                 </div>

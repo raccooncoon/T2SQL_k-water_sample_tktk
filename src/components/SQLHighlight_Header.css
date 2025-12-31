@@ -1,0 +1,111 @@
+/* Relocated feedback styles */
+.sql-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    /* Ensure absolute children are reliable if any */
+}
+
+.window-dots {
+    display: flex;
+    gap: 6px;
+    margin-right: 12px;
+}
+
+.header-actions {
+    margin-left: auto;
+    /* Push to right */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.feedback-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 12px;
+    /* Removed border-right */
+}
+
+.feedback-separator {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
+}
+
+.feedback-mini-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0;
+    /* Hide text if any remains */
+    padding: 4px;
+    opacity: 0.5;
+    transition: all 0.2s;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a1a1aa;
+    /* Default monochrome color */
+}
+
+.feedback-mini-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+    color: white;
+}
+
+.feedback-mini-btn.active {
+    opacity: 1;
+    background: transparent;
+}
+
+.feedback-mini-btn.active svg {
+    fill: none;
+}
+
+.feedback-mini-btn.thumbs-up.active {
+    color: #facc15;
+    /* Yellow */
+    background: transparent;
+}
+
+.feedback-mini-btn.thumbs-down.active {
+    color: #f87171;
+    /* Red */
+    background: transparent;
+}
+
+/* Adjust copy button if it was absolute */
+.sql-highlight {
+    position: relative;
+    padding-bottom: 32px !important;
+}
+
+.copy-btn {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 12px !important;
+    right: 12px !important;
+    color: #a1a1aa;
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.copy-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}

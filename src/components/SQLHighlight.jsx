@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import './SQLHighlight_Header.css';
 
-function SQLHighlight({ sql }) {
+function SQLHighlight({ sql, feedback, onFeedback }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -128,10 +129,37 @@ function SQLHighlight({ sql }) {
   return (
     <pre className="sql-highlight">
       <div className="sql-header">
-        <span className="dot red"></span>
-        <span className="dot yellow"></span>
-        <span className="dot green"></span>
+        <div className="window-dots">
+          <span className="dot red"></span>
+          <span className="dot yellow"></span>
+          <span className="dot green"></span>
+        </div>
         <span className="sql-lang-label">SQL</span>
+        <div className="header-actions">
+          {onFeedback && (
+            <div className="feedback-group">
+              <button
+                className={`feedback-mini-btn thumbs-up ${feedback === 'good' ? 'active' : ''}`}
+                onClick={() => onFeedback('good')}
+                title="좋아요"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                </svg>
+              </button>
+              <div className="feedback-separator"></div>
+              <button
+                className={`feedback-mini-btn thumbs-down ${feedback === 'bad' ? 'active' : ''}`}
+                onClick={() => onFeedback('bad')}
+                title="싫어요"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <code className="sql-code-body">
         {lines.map((line, idx) => (

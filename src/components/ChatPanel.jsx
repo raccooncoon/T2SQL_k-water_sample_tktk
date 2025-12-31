@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import './ChatPanel.css';
 import './SQLHighlight.css';
+import './ChatPanel_Feedback.css';
 import ChatSidebar from './ChatSidebar';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { analyzeQuery, generateMockSQL } from '../utils/chatUtils';
 
-function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
+function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat, globalFeedback, onFeedbackUpdate }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -299,13 +300,8 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
       // Reset view (close result panel) when switching sessions
       if (onNewChat) onNewChat();
 
-      // Scroll to top for switched session
-      setTimeout(() => {
-        const messagesArea = document.querySelector('.chat-messages');
-        if (messagesArea) {
-          messagesArea.scrollTop = 0;
-        }
-      }, 0);
+      // The existing useEffect on [messages] will automatically scroll to bottom
+      // when the new messages are loaded.
     }
   };
 
@@ -400,6 +396,25 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
     }, 100);
   };
 
+  const handleFeedback = (messageId, feedbackType) => {
+    // Check if we have global handler
+    const targetMsg = messages.find(m => m.id === messageId);
+    if (targetMsg && targetMsg.sql && onFeedbackUpdate) {
+      onFeedbackUpdate(targetMsg.sql, feedbackType);
+      return; // Handled globally
+    }
+
+    // Fallback Update local messages state
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId
+        ? { ...msg, feedback: feedbackType } // 'good' or 'bad'
+        : msg
+    ));
+
+    // Feedback is automatically synced to chatSessions via the existing useEffect hook
+    // because it watches [messages] and [activeSessionId].
+  };
+
   const handleDeleteRecentSearch = (searchToDelete) => {
     setRecentSearches(prev => prev.filter(search => search !== searchToDelete));
   };
@@ -426,7 +441,23 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
               onClick={() => setIsDarkMode(!isDarkMode)}
               aria-label="테마 전환"
             >
-              {isDarkMode ? '☀️' : '🌙'}
+              {isDarkMode ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5"></circle>
+                  <line x1="12" y1="1" x2="12" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="23"></line>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                  <line x1="1" y1="12" x2="3" y2="12"></line>
+                  <line x1="21" y1="12" x2="23" y2="12"></line>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+              )}
             </button>
           </div>
         </div>
@@ -454,13 +485,20 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
             {messages.map((message) => (
               <ChatMessage
                 key={message.id}
-                message={message}
+                message={{
+                  ...message,
+                  // Override feedback with global state if the key exists (even if null)
+                  feedback: (message.sql && globalFeedback && Object.prototype.hasOwnProperty.call(globalFeedback, message.sql))
+                    ? globalFeedback[message.sql]
+                    : message.feedback
+                }}
                 expandedSteps={expandedSteps}
                 setExpandedSteps={setExpandedSteps}
                 handleExecuteSQL={handleExecuteSQL}
                 setInput={setInput}
                 handleClarification={handleClarification}
                 handleCheckResults={handleCheckResults}
+                handleFeedback={handleFeedback}
               />
             ))}
             <div ref={messagesEndRef} />

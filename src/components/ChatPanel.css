@@ -824,6 +824,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-start;
+  /* Explicitly align to left */
+  width: 100%;
+  /* Force full width to prevent centering by parent */
 }
 
 .quick-action-btn {
@@ -891,7 +895,11 @@
   box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
+  justify-content: center;
+  /* Center the content */
   gap: 8px;
+  width: 100%;
+  /* Make it full width */
 }
 
 .execute-btn:hover {

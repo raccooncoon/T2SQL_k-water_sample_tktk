@@ -10,6 +10,7 @@ function App() {
   const [executedSQL, setExecutedSQL] = useState(null)
   const [showResultPanel, setShowResultPanel] = useState(false)
   const [activeTab, setActiveTab] = useState('results')
+  const [globalFeedback, setGlobalFeedback] = useState({}) // { queryContent: 'good'|'bad' }
 
   const handleSQLGenerate = (sql) => {
     setGeneratedSQL(sql)
@@ -38,6 +39,16 @@ function App() {
     setShowResultPanel(true)
   }
 
+  // Handle feedback updates globally by query content
+  const handleGlobalFeedback = (query, type) => {
+    setGlobalFeedback(prev => {
+      const current = prev[query];
+      // Toggle if same type, otherwise set new type
+      const newType = current === type ? null : type;
+      return { ...prev, [query]: newType };
+    });
+  }
+
   return (
     <div className="app-container">
       <PanelToggleButton
@@ -51,6 +62,8 @@ function App() {
             onSQLExecute={handleSQLExecute}
             onShowResult={handleShowResult}
             onNewChat={() => setShowResultPanel(false)}
+            globalFeedback={globalFeedback}
+            onFeedbackUpdate={handleGlobalFeedback}
           />
         }
         rightPanel={
@@ -59,6 +72,8 @@ function App() {
             executedSQL={executedSQL}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            globalFeedback={globalFeedback}
+            onFeedbackUpdate={handleGlobalFeedback}
           />
         }
         showRightPanel={showResultPanel}
