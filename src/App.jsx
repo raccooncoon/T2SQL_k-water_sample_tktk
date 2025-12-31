@@ -8,19 +8,28 @@ function App() {
   const [generatedSQL, setGeneratedSQL] = useState(null)
   const [executedSQL, setExecutedSQL] = useState(null)
   const [showResultPanel, setShowResultPanel] = useState(false)
+  const [resultTabTrigger, setResultTabTrigger] = useState(0)
 
   const handleSQLGenerate = (sql) => {
     setGeneratedSQL(sql)
   }
 
-  const handleSQLExecute = (sql) => {
+  const handleSQLExecute = (sql, originalQuery = "", timestamp = Date.now()) => {
     setExecutedSQL({
       query: sql,
-      timestamp: Date.now()
+      originalQuery: originalQuery,
+      timestamp: timestamp
     })
-    setShowResultPanel(true)
-    // Here you would typically make an API call to execute the SQL
+    // Removed setShowResultPanel(true) - panel opens only on button click
     console.log('Executing SQL:', sql)
+  }
+
+  const handleShowResult = (sqlData = null) => {
+    if (sqlData) {
+      setExecutedSQL(sqlData);
+    }
+    setResultTabTrigger(prev => prev + 1);
+    setShowResultPanel(true)
   }
 
   return (
@@ -30,6 +39,7 @@ function App() {
           <ChatPanel
             onSQLGenerate={handleSQLGenerate}
             onSQLExecute={handleSQLExecute}
+            onShowResult={handleShowResult}
             onNewChat={() => setShowResultPanel(false)}
           />
         }
@@ -37,6 +47,7 @@ function App() {
           <SQLResultPanel
             sql={generatedSQL}
             executedSQL={executedSQL}
+            resultTabTrigger={resultTabTrigger}
           />
         }
         showRightPanel={showResultPanel}

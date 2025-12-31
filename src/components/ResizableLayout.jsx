@@ -50,22 +50,18 @@ function ResizableLayout({ leftPanel, rightPanel, showRightPanel = false, minLef
         {leftPanel}
       </div>
 
-      {showRightPanel && (
-        <>
-          <div
-            className={`resizer ${isDragging ? 'dragging' : ''}`}
-            onMouseDown={() => setIsDragging(true)}
-          >
-            <div className="resizer-handle">
-              <div className="resizer-line"></div>
-            </div>
-          </div>
+      <div
+        className={`resizer ${isDragging ? 'dragging' : ''}`}
+        onMouseDown={() => setIsDragging(true)}
+      >
+        <div className="resizer-handle">
+          <div className="resizer-line"></div>
+        </div>
+      </div>
 
-          <div className="resizable-panel right-panel" style={{ width: `${100 - leftWidth}%` }}>
-            {rightPanel}
-          </div>
-        </>
-      )}
+      <div className="resizable-panel right-panel" style={{ width: showRightPanel ? `${100 - leftWidth}%` : '0%' }}>
+        {rightPanel}
+      </div>
     </div>
   );
 }

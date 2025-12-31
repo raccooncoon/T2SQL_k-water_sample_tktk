@@ -6,7 +6,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { analyzeQuery, generateMockSQL } from '../utils/chatUtils';
 
-function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
+function ChatPanel({ onSQLGenerate, onSQLExecute, onShowResult, onNewChat }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +90,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       id: Date.now(),
       type: 'user',
       content: queryText.trim(),
+      originalQuery: queryText.trim(),
       timestamp: new Date()
     };
 
@@ -157,6 +158,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
       thinkingSteps: thinkingSteps,
       currentStepIndex: 0,
       assumptions: analysis.assumptions,
+      originalQuery: queryText.trim(),
     }]);
 
     // Expand the first thinking step initially
@@ -253,7 +255,17 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
   };
 
   const handleExecuteSQL = async (sql, messageId) => {
+    // Find the original query from the message history
+    const originalMsg = messages.find(m => m.id === messageId);
+    const originalQuery = originalMsg?.originalQuery || "";
+
     const executionMessageId = Date.now();
+
+    // Mark the original message as executed
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId ? { ...msg, wasExecuted: true } : msg
+    ));
+
     setMessages(prev => [...prev, {
       id: executionMessageId,
       type: 'system',
@@ -272,13 +284,24 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
 
     await new Promise(resolve => setTimeout(resolve, 600));
 
+    const executionTimestamp = Date.now();
     setMessages(prev => prev.map(msg =>
       msg.id === executionMessageId
-        ? { ...msg, content: '✓ 실행 완료! 결과를 확인하세요.', isExecuting: false, isSuccess: true }
+        ? {
+          ...msg,
+          content: '✓ 실행 완료! 결과를 확인하세요.',
+          isExecuting: false,
+          isSuccess: true,
+          executionData: {
+            query: sql,
+            originalQuery: originalQuery,
+            timestamp: executionTimestamp
+          }
+        }
         : msg
     ));
 
-    if (onSQLExecute) onSQLExecute(sql);
+    if (onSQLExecute) onSQLExecute(sql, originalQuery, executionTimestamp);
   };
 
   const handleClarification = (message, option) => {
@@ -296,6 +319,19 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
     ));
     const combinedQuery = `${message.originalQuery} ${option}`;
     handleSubmit(null, combinedQuery);
+  };
+
+  const handleCheckResults = (executionData = null) => {
+    // 1. Open the Result Panel and set specific data if provided
+    if (onShowResult) onShowResult(executionData);
+
+    // 2. Wait a bit for the rendering/animation and scroll
+    setTimeout(() => {
+      const resultPanel = document.querySelector('.sql-result-panel');
+      if (resultPanel) {
+        resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   const handleDeleteRecentSearch = (searchToDelete) => {
@@ -357,6 +393,7 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
                 handleExecuteSQL={handleExecuteSQL}
                 setInput={setInput}
                 handleClarification={handleClarification}
+                handleCheckResults={handleCheckResults}
               />
             ))}
             <div ref={messagesEndRef} />

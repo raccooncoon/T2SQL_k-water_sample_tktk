@@ -9,6 +9,8 @@
   line-height: 1.6;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  /* For absolute copy button */
 }
 
 .sql-header {
@@ -46,6 +48,56 @@
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.sql-highlight .copy-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  background: rgba(45, 45, 45, 0.8);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50% !important;
+  /* Force circular */
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.6;
+  z-index: 10;
+}
+
+.sql-highlight:hover .copy-btn {
+  opacity: 1;
+}
+
+.sql-highlight .copy-btn:hover {
+  background: rgba(59, 130, 246, 0.1) !important;
+  /* Subtle blue tint on hover */
+  color: #3b82f6 !important;
+  /* Blue icon on hover */
+  border-color: #3b82f6 !important;
+  /* Blue border on hover */
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.sql-highlight .copy-btn.copied {
+  background: rgba(16, 185, 129, 0.1) !important;
+  /* Subtle green tint */
+  color: #10b981 !important;
+  /* Green icon */
+  border-color: #10b981 !important;
+  /* Green border */
+  opacity: 1;
+}
+
+.sql-highlight .copy-btn:active {
+  transform: scale(0.95);
 }
 
 .sql-code-body {

@@ -7,7 +7,8 @@ const ChatMessage = ({
     setExpandedSteps,
     handleExecuteSQL,
     setInput,
-    handleClarification
+    handleClarification,
+    handleCheckResults
 }) => {
     return (
         <div className={`message ${message.type} ${message.isThinking ? 'thinking' : ''} ${message.isSuccess ? 'success' : ''}`}>
@@ -22,9 +23,19 @@ const ChatMessage = ({
             </div>
             <div className="message-content">
                 <div className={`message-text ${message.isThinking || message.isExecuting ? 'processing' : ''}`}>
-                    {message.content}
-
-                    {/* Show thinking steps (clickable) - Show during thinking or after completion */}
+                    {message.isSuccess ? (
+                        <div className="success-row">
+                            <span className="success-text">{message.content}</span>
+                            <button
+                                className="check-results-btn"
+                                onClick={() => handleCheckResults(message.executionData)}
+                            >
+                                📊 결과 확인하기
+                            </button>
+                        </div>
+                    ) : (
+                        message.content
+                    )}
                     {message.thinkingSteps && (message.isThinking || message.completedSteps) && (
                         <div className="thinking-steps">
                             {message.thinkingSteps.map((step, idx) => (
@@ -70,7 +81,6 @@ const ChatMessage = ({
                         </div>
                     )}
 
-                    {/* Show final SQL */}
                     {message.sql && !message.streamedSQL && (
                         <div className="sql-preview-wrapper">
                             <SQLHighlight sql={message.sql} />
@@ -98,8 +108,9 @@ const ChatMessage = ({
                         <button
                             className="execute-btn"
                             onClick={() => handleExecuteSQL(message.sql, message.id)}
+                            disabled={message.wasExecuted}
                         >
-                            ▶ SQL 실행
+                            {message.wasExecuted ? '✓ 실행됨' : '▶ SQL 실행'}
                         </button>
                         <div className="quick-actions">
                             <button

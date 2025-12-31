@@ -21,8 +21,21 @@
   border-right: none;
 }
 
+.resizer {
+  display: none;
+}
+
+.split-view .resizer {
+  display: flex;
+}
+
 .right-panel {
+  display: none;
   animation: slideInRight 0.3s ease-out;
+}
+
+.split-view .right-panel {
+  display: block;
 }
 
 @keyframes slideInRight {
@@ -30,6 +43,7 @@
     opacity: 0;
     transform: translateX(100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);

@@ -5,25 +5,38 @@ import {
     Legend, ResponsiveContainer
 } from 'recharts';
 
-const ChartDashboard = ({ displayedResults }) => {
+const ChartDashboard = ({ displayedResults, originalQuery }) => {
     if (!displayedResults || displayedResults.length === 0) return null;
 
-    const chartData = displayedResults.slice(0, 50);
-    const barData = displayedResults.slice(0, 20);
-    const firstRow = displayedResults[0];
+    const chartData = (displayedResults || []).slice(0, 50);
+    const barData = (displayedResults || []).slice(0, 20);
+    const firstRow = displayedResults && displayedResults.length > 0 ? displayedResults[0] : null;
+
+    if (!firstRow) return null;
+
     const keys = Object.keys(firstRow);
+
+    // Identify keywords from originalQuery
+    const queryKeywords = originalQuery ? originalQuery.toLowerCase() : '';
+    const mentionedKeys = keys.filter(k => queryKeywords.includes(k.toLowerCase()));
 
     // 1. Identify X-Axis candidate
     // Prioritize temporal columns, then categorical
     const temporalKeys = ['측정일시', '측정일자', '사용일자', '최근점검일', '일시', '일자', '날짜'];
     const categoricalKeys = ['위치', '지역', '시설명', '종류', '상태', '담당자'];
 
-    let xAxisKey = keys.find(k => temporalKeys.includes(k));
+    // Prioritization:
+    // 1. Mentioned temporal keys
+    // 2. Default temporal keys
+    // 3. Mentioned categorical keys
+    // 4. Default categorical keys
+
+    let xAxisKey = mentionedKeys.find(k => temporalKeys.includes(k));
+    if (!xAxisKey) xAxisKey = keys.find(k => temporalKeys.includes(k));
     let isTemporal = !!xAxisKey;
 
-    if (!xAxisKey) {
-        xAxisKey = keys.find(k => categoricalKeys.includes(k));
-    }
+    if (!xAxisKey) xAxisKey = mentionedKeys.find(k => categoricalKeys.includes(k));
+    if (!xAxisKey) xAxisKey = keys.find(k => categoricalKeys.includes(k));
 
     if (!xAxisKey) {
         xAxisKey = keys[0]; // Fallback to first column
@@ -32,6 +45,7 @@ const ChartDashboard = ({ displayedResults }) => {
     // 2. Identify Numeric Y-Axis candidates
     // Exclude IDs, keys, and non-numeric strings
     const excludeKeys = ['번호', 'id', 'ID', xAxisKey];
+
     const numericKeys = keys.filter(k => {
         if (excludeKeys.includes(k)) return false;
 
@@ -46,8 +60,17 @@ const ChartDashboard = ({ displayedResults }) => {
         return false;
     });
 
-    // Limit to top 3 most interesting numeric keys to avoid clutter
-    const topNumericKeys = numericKeys.slice(0, 3);
+    // Sort numeric keys: mentioned ones first
+    const sortedNumericKeys = [...numericKeys].sort((a, b) => {
+        const aMentioned = mentionedKeys.includes(a);
+        const bMentioned = mentionedKeys.includes(b);
+        if (aMentioned && !bMentioned) return -1;
+        if (!aMentioned && bMentioned) return 1;
+        return 0;
+    });
+
+    // Limit to top 3
+    const topNumericKeys = sortedNumericKeys.slice(0, 3);
 
     // Function to parse numeric value from string (e.g., "95.5%" -> 95.5)
     const parseNumeric = (val) => {

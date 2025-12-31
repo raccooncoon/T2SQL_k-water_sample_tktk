@@ -94,24 +94,6 @@
   color: var(--text-primary);
 }
 
-.copy-btn {
-  padding: 8px 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-primary);
-  transition: all 0.2s;
-}
-
-.copy-btn:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--primary-blue);
-  color: var(--primary-blue);
-  transform: translateY(-1px);
-}
-
 .sql-code {
   flex: 1;
   background: var(--code-bg);
@@ -640,19 +622,40 @@
   margin-bottom: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
-  cursor: pointer;
   position: relative;
 }
 
 .history-item:hover {
-  border-color: var(--primary-blue);
+  border-color: var(--border-hover);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
   background: var(--bg-secondary);
 }
 
-.history-item:active {
-  transform: translateY(0);
+.history-question {
+  margin-bottom: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 3px solid var(--primary-blue);
+}
+
+.question-label {
+  font-weight: 800;
+  color: var(--primary-blue);
+  font-size: 12px;
+  /* Slightly smaller as requested */
+  margin-top: 1px;
+}
+
+.question-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-all;
+  font-weight: 500;
 }
 
 .history-action {
@@ -663,15 +666,30 @@
   justify-content: flex-end;
 }
 
-.action-hint {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  font-weight: 500;
-  transition: color 0.2s;
+.history-results-btn {
+  padding: 8px 16px;
+  background: var(--bg-primary);
+  color: var(--accent-green);
+  border: 1.5px solid var(--accent-green);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.history-item:hover .action-hint {
-  color: var(--primary-blue);
+.history-results-btn:hover {
+  background: var(--accent-green);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.history-results-btn:active {
+  transform: translateY(0);
 }
 
 .history-meta {

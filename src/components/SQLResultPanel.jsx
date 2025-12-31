@@ -12,7 +12,14 @@ import {
   getMockData
 } from '../utils/resultUtils';
 
-function SQLResultPanel({ sql, executedSQL }) {
+// Primary columns that are shown by default
+const PRIMARY_COLUMNS = [
+  '번호', '측정일시', '위치', 'pH수치', '탁도', '온도', '잔류염소', '평균_pH', '측정횟수',
+  '측정일자', '지역', '가정용_사용량', '청구금액', // water_usage
+  '시설ID', '시설명', '가동상태', '최근점검일', '가동률', '담당자' // facility_status
+];
+
+function SQLResultPanel({ sql, executedSQL, resultTabTrigger }) {
   const [activeTab, setActiveTab] = useState('results');
   const [allResults, setAllResults] = useState(generateAllMockResults());
   const [displayedResults, setDisplayedResults] = useState([]);
@@ -26,13 +33,12 @@ function SQLResultPanel({ sql, executedSQL }) {
   const columnPickerRef = useRef(null);
   const processedExecutionRef = useRef(null);
 
-  // Primary columns that are shown by default
-  // Primary columns that are shown by default
-  const primaryColumns = [
-    '번호', '측정일시', '위치', 'pH수치', '탁도', '온도', '잔류염소', '평균_pH', '측정횟수',
-    '측정일자', '지역', '가정용_사용량', '청구금액', // water_usage
-    '시설ID', '시설명', '가동상태', '최근점검일', '가동률', '담당자' // facility_status
-  ];
+  // Switch to results tab only when explicitly triggered (e.g., button click)
+  useEffect(() => {
+    if (resultTabTrigger > 0) {
+      setActiveTab('results');
+    }
+  }, [resultTabTrigger]);
 
   // Close column picker when clicking outside
   useEffect(() => {
@@ -45,12 +51,18 @@ function SQLResultPanel({ sql, executedSQL }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Initialize visible columns when results change
+  // Sync displayed results when allResults changes
   useEffect(() => {
+    setDisplayedResults(allResults.slice(0, 20));
+    setPage(0);
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollTop = 0;
+    }
+
     if (allResults.length > 0) {
       const allKeys = Object.keys(allResults[0]);
       const initialVisible = allKeys.filter(key =>
-        primaryColumns.includes(key) || allKeys.length <= 4
+        PRIMARY_COLUMNS.includes(key) || allKeys.length <= 4
       );
       setVisibleColumns(initialVisible);
     }
@@ -75,18 +87,25 @@ function SQLResultPanel({ sql, executedSQL }) {
       setPage(0);
       setDisplayedResults(newResults.slice(0, 20));
 
-      setQueryHistory(prev => [
-        {
-          id: Date.now(),
-          query: sqlQuery,
-          timestamp: new Date(),
-          executionTime: '0.023s',
-          rowCount: newResults.length,
-          results: [...newResults]
-        },
-        ...prev.slice(0, 9)
-      ]);
-      setActiveTab('results');
+      setQueryHistory(prev => {
+        // Check if this execution is already in history (deduplication)
+        if (prev.some(item => item.id === executedSQL.timestamp)) {
+          return prev;
+        }
+
+        return [
+          {
+            id: executedSQL.timestamp,
+            query: sqlQuery,
+            originalQuery: executedSQL.originalQuery || "",
+            timestamp: new Date(executedSQL.timestamp),
+            executionTime: '0.023s',
+            rowCount: newResults.length,
+            results: [...newResults]
+          },
+          ...prev.slice(0, 9)
+        ];
+      });
     }
   }, [executedSQL]);
 
@@ -97,8 +116,7 @@ function SQLResultPanel({ sql, executedSQL }) {
   // Load history query results
   const loadHistoryQuery = (historyItem) => {
     setActiveTab('results');
-    setPage(0);
-    setDisplayedResults(historyItem.results.slice(0, 20));
+    setAllResults(historyItem.results);
   };
 
   // Load more data when scrolling
@@ -277,7 +295,10 @@ function SQLResultPanel({ sql, executedSQL }) {
         {activeTab === 'chart' && (
           <div className="chart-view">
             {executedSQL && displayedResults.length > 0 ? (
-              <ChartDashboard displayedResults={displayedResults} />
+              <ChartDashboard
+                displayedResults={displayedResults}
+                originalQuery={executedSQL.originalQuery}
+              />
             ) : (
               <div className="empty-state">
                 <span className="empty-icon">◐</span>
@@ -329,21 +350,42 @@ function SQLResultPanel({ sql, executedSQL }) {
                   <div
                     key={item.id}
                     className="history-item"
-                    onClick={() => loadHistoryQuery(item)}
                   >
                     <div className="history-meta">
                       <span className="history-time">
-                        {item.timestamp.toLocaleTimeString()}
+                        {item.timestamp.toLocaleString('ko-KR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false
+                        }).replace(/(\d{4})-(\d{2})-(\d{2})/, '$1.$2.$3')}
                       </span>
                       <span className="history-stats">
                         ⚡ {item.executionTime} • {item.rowCount}개 행
                       </span>
                     </div>
+                    {item.originalQuery && (
+                      <div className="history-question">
+                        <span className="question-label">Q.</span>
+                        <span className="question-text">{item.originalQuery}</span>
+                      </div>
+                    )}
                     <div className="history-query-wrapper">
                       <SQLHighlight sql={item.query} />
                     </div>
                     <div className="history-action">
-                      <span className="action-hint">→ 클릭하여 결과 보기</span>
+                      <button
+                        className="history-results-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          loadHistoryQuery(item);
+                        }}
+                      >
+                        📊 결과 확인하기
+                      </button>
                     </div>
                   </div>
                 ))}
