@@ -187,17 +187,43 @@ function SQLResultPanel({ sql, executedSQL }) {
                       <div className="dropdown-header">컬럼 설정 (표시 및 순서)</div>
                       <div className="column-list">
                         <div className="dropdown-section">
-                          <div className="section-title">표시 중인 컬럼</div>
-                          {visibleColumns.map((key, index) => (
-                            <div key={key} className="column-item active">
-                              <input type="checkbox" checked={true} onChange={() => toggleColumn(key)} />
-                              <span className="column-name-text">{key}</span>
-                              <div className="reorder-btns">
-                                <button className="reorder-btn" onClick={(e) => { e.stopPropagation(); moveColumn(index, -1); }} disabled={index === 0}>↑</button>
-                                <button className="reorder-btn" onClick={(e) => { e.stopPropagation(); moveColumn(index, 1); }} disabled={index === visibleColumns.length - 1}>↓</button>
-                              </div>
-                            </div>
-                          ))}
+                          <div className="section-title">표시 컬럼 설정</div>
+                          {(() => {
+                            const allKeys = allResults.length > 0 ? Object.keys(allResults[0]) : [];
+                            return allKeys.map((key, index) => {
+                              const isVisible = visibleColumns.includes(key);
+                              const visibleIndex = visibleColumns.indexOf(key);
+
+                              return (
+                                <div key={key} className={`column-item ${isVisible ? 'active' : 'hidden'}`}>
+                                  <div className="column-item-main">
+                                    <input
+                                      type="checkbox"
+                                      checked={isVisible}
+                                      onChange={() => toggleColumn(key)}
+                                    />
+                                    <span className="column-name-text">{key}</span>
+                                  </div>
+                                  {isVisible && (
+                                    <div className="reorder-btns">
+                                      <button
+                                        className="reorder-btn"
+                                        onClick={(e) => { e.stopPropagation(); moveColumn(visibleIndex, -1); }}
+                                        disabled={visibleIndex === 0}
+                                        title="순서 위로"
+                                      >↑</button>
+                                      <button
+                                        className="reorder-btn"
+                                        onClick={(e) => { e.stopPropagation(); moveColumn(visibleIndex, 1); }}
+                                        disabled={visibleIndex === visibleColumns.length - 1}
+                                        title="순서 아래로"
+                                      >↓</button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()}
                         </div>
                       </div>
                     </div>

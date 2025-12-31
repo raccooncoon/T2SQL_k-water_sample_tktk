@@ -948,6 +948,8 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
+  max-height: 84px; /* Roughly 2 lines of chips */
+  overflow: hidden;
 }
 
 .chip {

@@ -276,29 +276,40 @@
 .column-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 8px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
   font-size: 13px;
   color: var(--text-primary);
+  border: 1px solid transparent;
 }
 
 .column-item:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
 }
 
 .column-item.active {
   background: rgba(59, 130, 246, 0.05);
+  border-color: rgba(59, 130, 246, 0.1);
 }
 
-.column-item.active:hover {
-  background: rgba(59, 130, 246, 0.1);
+.column-item.hidden {
+  opacity: 0.6;
+}
+
+.column-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
 }
 
 .column-name-text {
   flex: 1;
+  font-weight: 500;
 }
 
 .reorder-btns {
