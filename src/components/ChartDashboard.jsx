@@ -6,78 +6,133 @@ import {
 } from 'recharts';
 
 const ChartDashboard = ({ displayedResults }) => {
+    if (!displayedResults || displayedResults.length === 0) return null;
+
     const chartData = displayedResults.slice(0, 50);
     const barData = displayedResults.slice(0, 20);
+    const firstRow = displayedResults[0];
+    const keys = Object.keys(firstRow);
+
+    // 1. Identify X-Axis candidate
+    // Prioritize temporal columns, then categorical
+    const temporalKeys = ['측정일시', '측정일자', '사용일자', '최근점검일', '일시', '일자', '날짜'];
+    const categoricalKeys = ['위치', '지역', '시설명', '종류', '상태', '담당자'];
+
+    let xAxisKey = keys.find(k => temporalKeys.includes(k));
+    let isTemporal = !!xAxisKey;
+
+    if (!xAxisKey) {
+        xAxisKey = keys.find(k => categoricalKeys.includes(k));
+    }
+
+    if (!xAxisKey) {
+        xAxisKey = keys[0]; // Fallback to first column
+    }
+
+    // 2. Identify Numeric Y-Axis candidates
+    // Exclude IDs, keys, and non-numeric strings
+    const excludeKeys = ['번호', 'id', 'ID', xAxisKey];
+    const numericKeys = keys.filter(k => {
+        if (excludeKeys.includes(k)) return false;
+
+        const val = firstRow[k];
+        // Check if value is numeric or represents a percentage/measurement
+        if (typeof val === 'number') return true;
+        if (typeof val === 'string') {
+            // Remove %, commas, units and check if it's a number
+            const cleaned = val.replace(/[%,k\/Wh\s가-힣]/g, '');
+            return !isNaN(parseFloat(cleaned)) && isFinite(cleaned);
+        }
+        return false;
+    });
+
+    // Limit to top 3 most interesting numeric keys to avoid clutter
+    const topNumericKeys = numericKeys.slice(0, 3);
+
+    // Function to parse numeric value from string (e.g., "95.5%" -> 95.5)
+    const parseNumeric = (val) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+            const cleaned = val.replace(/[%,k\/Wh\s가-힣]/g, '');
+            return parseFloat(cleaned);
+        }
+        return 0;
+    };
+
+    // Prepare data by parsing numeric strings
+    const processedData = chartData.map(row => {
+        const newRow = { ...row };
+        topNumericKeys.forEach(k => {
+            newRow[`_num_${k}`] = parseNumeric(row[k]);
+        });
+        return newRow;
+    });
+
+    const processedBarData = barData.map(row => {
+        const newRow = { ...row };
+        topNumericKeys.forEach(k => {
+            newRow[`_num_${k}`] = parseNumeric(row[k]);
+        });
+        return newRow;
+    });
 
     return (
         <div className="charts-container">
-            <div className="chart-section">
-                <h4>▸ pH 수치 추이</h4>
-                <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis
-                            dataKey="측정일시"
-                            tick={{ fontSize: 11 }}
-                            angle={-45}
-                            textAnchor="end"
-                            height={80}
-                        />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Legend />
-                        <Line
-                            type="monotone"
-                            dataKey="pH수치"
-                            stroke="#1a73e8"
-                            strokeWidth={2}
-                            dot={{ r: 3 }}
-                            name="pH 수치"
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
-            </div>
+            {topNumericKeys.map((yKey, index) => (
+                <div key={yKey} className="chart-section">
+                    <h4>▸ {xAxisKey}별 {yKey} {isTemporal ? '추이' : '비교'}</h4>
+                    <ResponsiveContainer width="100%" height={250}>
+                        {isTemporal ? (
+                            <LineChart data={processedData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis
+                                    dataKey={xAxisKey}
+                                    tick={{ fontSize: 10 }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                />
+                                <YAxis tick={{ fontSize: 11 }} />
+                                <Tooltip />
+                                <Legend />
+                                <Line
+                                    type="monotone"
+                                    dataKey={`_num_${yKey}`}
+                                    stroke={['#1a73e8', '#10b981', '#f59e0b', '#ef4444'][index % 4]}
+                                    strokeWidth={2}
+                                    dot={{ r: 3 }}
+                                    name={yKey}
+                                />
+                            </LineChart>
+                        ) : (
+                            <BarChart data={processedBarData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis
+                                    dataKey={xAxisKey}
+                                    tick={{ fontSize: 10 }}
+                                    angle={xAxisKey.length > 5 ? -45 : 0}
+                                    textAnchor={xAxisKey.length > 5 ? "end" : "middle"}
+                                    height={xAxisKey.length > 5 ? 80 : 30}
+                                />
+                                <YAxis tick={{ fontSize: 11 }} />
+                                <Tooltip />
+                                <Legend />
+                                <Bar
+                                    dataKey={`_num_${yKey}`}
+                                    fill={['#1a73e8', '#10b981', '#f59e0b', '#ef4444'][index % 4]}
+                                    name={yKey}
+                                />
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
+                </div>
+            ))}
 
-            <div className="chart-section">
-                <h4>▸ 위치별 탁도 비교</h4>
-                <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={barData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="위치" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="탁도" fill="#10b981" name="탁도" />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-
-            <div className="chart-section">
-                <h4>▸ 시간별 온도 변화</h4>
-                <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis
-                            dataKey="측정일시"
-                            tick={{ fontSize: 11 }}
-                            angle={-45}
-                            textAnchor="end"
-                            height={80}
-                        />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Legend />
-                        <Line
-                            type="monotone"
-                            dataKey="온도"
-                            stroke="#f59e0b"
-                            strokeWidth={2}
-                            dot={{ r: 3 }}
-                            name="온도 (°C)"
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
-            </div>
+            {topNumericKeys.length === 0 && (
+                <div className="empty-state" style={{ padding: '40px' }}>
+                    <p>시각화할 수 있는 수치 데이터가 결과에 포함되어 있지 않습니다.</p>
+                </div>
+            )}
         </div>
     );
 };

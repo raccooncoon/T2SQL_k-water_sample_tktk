@@ -8,12 +8,13 @@ import ChartDashboard from './ChartDashboard';
 import {
   generateAllMockResults,
   generateSchemaData,
-  downloadExcel
+  downloadExcel,
+  getMockData
 } from '../utils/resultUtils';
 
 function SQLResultPanel({ sql, executedSQL }) {
   const [activeTab, setActiveTab] = useState('results');
-  const [allResults] = useState(generateAllMockResults());
+  const [allResults, setAllResults] = useState(generateAllMockResults());
   const [displayedResults, setDisplayedResults] = useState([]);
   const [page, setPage] = useState(0);
   const [queryHistory, setQueryHistory] = useState([]);
@@ -26,7 +27,12 @@ function SQLResultPanel({ sql, executedSQL }) {
   const processedExecutionRef = useRef(null);
 
   // Primary columns that are shown by default
-  const primaryColumns = ['번호', '측정일시', '위치', 'pH수치', '탁도', '온도', '잔류염소', '평균_pH', '측정횟수'];
+  // Primary columns that are shown by default
+  const primaryColumns = [
+    '번호', '측정일시', '위치', 'pH수치', '탁도', '온도', '잔류염소', '평균_pH', '측정횟수',
+    '측정일자', '지역', '가정용_사용량', '청구금액', // water_usage
+    '시설ID', '시설명', '가동상태', '최근점검일', '가동률', '담당자' // facility_status
+  ];
 
   // Close column picker when clicking outside
   useEffect(() => {
@@ -55,8 +61,19 @@ function SQLResultPanel({ sql, executedSQL }) {
     if (executedSQL && executedSQL.timestamp !== processedExecutionRef.current) {
       processedExecutionRef.current = executedSQL.timestamp;
       const sqlQuery = executedSQL.query;
+
+      // Determine which table's data to load
+      let targetTable = 'water_quality';
+      if (sqlQuery.toLowerCase().includes('water_usage')) {
+        targetTable = 'water_usage';
+      } else if (sqlQuery.toLowerCase().includes('facility_status')) {
+        targetTable = 'facility_status';
+      }
+
+      const newResults = getMockData(targetTable);
+      setAllResults(newResults);
       setPage(0);
-      setDisplayedResults(allResults.slice(0, 20));
+      setDisplayedResults(newResults.slice(0, 20));
 
       setQueryHistory(prev => [
         {
@@ -64,14 +81,18 @@ function SQLResultPanel({ sql, executedSQL }) {
           query: sqlQuery,
           timestamp: new Date(),
           executionTime: '0.023s',
-          rowCount: allResults.length,
-          results: [...allResults]
+          rowCount: newResults.length,
+          results: [...newResults]
         },
         ...prev.slice(0, 9)
       ]);
       setActiveTab('results');
     }
-  }, [executedSQL, allResults]);
+  }, [executedSQL]);
+
+  // Wait, I should verify the `useState` line first.
+  // Replacing the useEffect logic and the useState definition in one go if possible.
+
 
   // Load history query results
   const loadHistoryQuery = (historyItem) => {

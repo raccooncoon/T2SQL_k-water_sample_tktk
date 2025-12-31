@@ -93,6 +93,10 @@ export const analyzeQuery = (query, conversationContext = {}) => {
         analysis.intent = 'average';
     } else if (lowerQuery.includes('최근') || lowerQuery.includes('조회')) {
         analysis.intent = 'recent';
+    } else if (lowerQuery.includes('사용량') || lowerQuery.includes('청구')) {
+        analysis.intent = 'usage';
+    } else if (lowerQuery.includes('시설') || lowerQuery.includes('점검') || lowerQuery.includes('가동')) {
+        analysis.intent = 'facility';
     } else if (lowerQuery.includes('모든') || lowerQuery.includes('전체')) {
         analysis.intent = 'all';
     }
@@ -102,7 +106,7 @@ export const analyzeQuery = (query, conversationContext = {}) => {
         analysis.isAmbiguous = true;
         analysis.clarificationNeeded.push({
             question: '도움이 필요하신 내용을 선택하시겠어요?',
-            options: ['최근 수질 조회', '위치별 평균 통계', '수질 이상치 확인'],
+            options: ['최근 수질 조회', '위치별 평균 통계', '수질 이상치 확인', '지역별 물 사용량', '시설물 점검 현황'],
             field: 'action'
         });
     }
@@ -122,7 +126,29 @@ export const generateMockSQL = (query, analysis, conversationContext = {}) => {
     let whereConditions = [];
     let groupByClause = "";
     let orderByClause = "ORDER BY measurement_date DESC";
-    let limitClause = "LIMIT 100";
+    let limitClause = "LIMIT 500";
+
+    // Switch table based on intent or keywords
+    if (analysis.intent === 'usage' || lowerQuery.includes('사용량') || lowerQuery.includes('청구')) {
+        selectClause = "SELECT id AS '번호', usage_date AS '사용일자', region AS '지역', household_usage AS '가정용', industrial_usage AS '산업용', public_usage AS '공공용', billing_amount AS '청구금액'";
+        fromClause = "FROM water_usage";
+        orderByClause = "ORDER BY usage_date DESC";
+
+        if (lowerQuery.includes('지역별')) {
+            selectClause = "SELECT region AS '지역', SUM(household_usage) AS '총_가정용', SUM(industrial_usage) AS '총_산업용', SUM(billing_amount) AS '총_청구금액'";
+            groupByClause = "GROUP BY region";
+            orderByClause = "ORDER BY region";
+        }
+    } else if (analysis.intent === 'facility' || lowerQuery.includes('시설') || lowerQuery.includes('점검')) {
+        selectClause = "SELECT facility_id AS '시설ID', facility_name AS '시설명', type AS '종류', status AS '상태', last_check_date AS '최근점검일', manager AS '담당자', operation_rate AS '가동률'";
+        fromClause = "FROM facility_status";
+        orderByClause = "ORDER BY last_check_date ASC"; // Show oldest checked first implies priority?? Or DESC for recent. Let's do DESC for recent.
+        orderByClause = "ORDER BY last_check_date DESC";
+
+        if (lowerQuery.includes('점검') && (lowerQuery.includes('필요') || lowerQuery.includes('예정'))) {
+            whereConditions.push("status != '정상'"); // simple logic
+        }
+    }
 
     // Handle modification requests
     if (analysis.isModification && conversationContext.lastSQL) {
@@ -155,10 +181,12 @@ export const generateMockSQL = (query, analysis, conversationContext = {}) => {
         whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
     } else if (lowerQuery.includes('1개월') || lowerQuery.includes('한달')) {
         whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+    } else if (lowerQuery.includes('어제')) {
+        whereConditions.push("measurement_date >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND measurement_date < CURDATE()");
     } else if (lowerQuery.includes('오늘')) {
         whereConditions.push("DATE(measurement_date) = CURDATE()");
-    } else if (lowerQuery.includes('최근')) {
-        whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+    } else if (lowerQuery.includes('최근') || lowerQuery.includes('24시간')) {
+        whereConditions.push("measurement_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
     }
 
     // Parse Thresholds (Abnormalities)
@@ -167,7 +195,30 @@ export const generateMockSQL = (query, analysis, conversationContext = {}) => {
     } else if (lowerQuery.includes('탁도 0.5')) {
         whereConditions.push("turbidity >= 0.5");
     } else if (lowerQuery.includes('온도 25')) {
+    } else if (lowerQuery.includes('온도 25')) {
         whereConditions.push("temperature >= 25");
+    } else if (lowerQuery.includes('전기전도도') && lowerQuery.includes('300')) {
+        whereConditions.push("conductivity >= 300");
+    } else if (lowerQuery.includes('잔류염소')) {
+        whereConditions.push("residual_chlorine IS NOT NULL");
+    }
+
+    // Handle 'Less than' (이하)
+    if (lowerQuery.includes('이하')) {
+        whereConditions = whereConditions.map(cond => cond.replace('>=', '<='));
+    }
+
+    // Handle Top N (상위)
+    if (lowerQuery.includes('상위')) {
+        const match = lowerQuery.match(/(\d+)개/);
+        const limit = match ? match[1] : '10';
+        limitClause = `LIMIT ${limit}`;
+
+        if (lowerQuery.includes('탁도')) {
+            orderByClause = "ORDER BY turbidity DESC";
+        } else if (lowerQuery.includes('ph')) {
+            orderByClause = "ORDER BY ph_level DESC";
+        }
     }
 
     // Handle Aggregation / Intent
@@ -178,6 +229,8 @@ export const generateMockSQL = (query, analysis, conversationContext = {}) => {
             selectClause = "SELECT location AS '위치', AVG(turbidity) AS '평균_탁도'";
         } else if (lowerQuery.includes('온도')) {
             selectClause = "SELECT location AS '위치', AVG(temperature) AS '평균_온도'";
+        } else if (lowerQuery.includes('암모니아')) {
+            selectClause = "SELECT location AS '위치', AVG(ammonia_nitrogen) AS '평균_암모니아성질소'";
         } else {
             selectClause = "SELECT location AS '위치', AVG(ph_level) AS '평균_pH', AVG(turbidity) AS '평균_탁도', AVG(temperature) AS '평균_온도'";
         }

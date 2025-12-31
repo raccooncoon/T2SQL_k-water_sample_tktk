@@ -21,15 +21,25 @@ function ChatPanel({ onSQLGenerate, onSQLExecute, onNewChat }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState([
     '최근 7일간의 수질 데이터를 보여줘',
+    '지역별 물 사용량 비교',
+    '점검이 필요한 시설물 확인',
     'pH 수치가 8.0 이상인 데이터',
     '수원지A 평균 탁도',
+    '전기전도도가 300 이상인 곳',
+    '어제 수원지B의 잔류염소 수치',
+    '탁도가 0.5 이하인 깨끗한 물',
   ]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [popularSearches] = useState([
     '수질 데이터 평균 보여줘',
     '비정상 수질 데이터 찾기',
-    '지난 달 온도 통계',
+    '이번 달 수도 사용량 패턴',
     '수원지B 최근 데이터',
+    '가동률 90% 이상인 시설',
+    'pH 8.5 이상인 위험 구간',
+    '모든 수원지의 암모니아성 질소 비교',
+    '탁도 상위 10개 지점',
+    '최근 24시간 실시간 현황',
   ]);
   const messagesEndRef = useRef(null);
 
