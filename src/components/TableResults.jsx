@@ -4,11 +4,12 @@ const TableResults = ({
     displayedResults,
     visibleColumns,
     allResultsCount,
-    tableContainerRef
+    tableContainerRef,
+    density = 'compact' // 'compact' | 'comfortable'
 }) => {
     return (
         <div className="table-container" ref={tableContainerRef}>
-            <table className="results-table">
+            <table className={`results-table density-${density}`}>
                 <thead>
                     <tr>
                         {visibleColumns.map(key => (

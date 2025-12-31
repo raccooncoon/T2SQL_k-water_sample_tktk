@@ -28,6 +28,7 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedb
   const [schemaData, setSchemaData] = useState([]);
   const [visibleColumns, setVisibleColumns] = useState([]);
   const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
+  const [density, setDensity] = useState('compact'); // 'compact' | 'comfortable'
   const tableContainerRef = useRef(null);
   const observerRef = useRef(null);
   const columnPickerRef = useRef(null);
@@ -206,6 +207,41 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedb
                   </button>
                   {isColumnPickerOpen && (
                     <div className="column-picker-dropdown">
+                      <div className="dropdown-header">화면 밀도 설정</div>
+                      <div className="density-toggle-group" style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 12px' }}>
+                        <button
+                          className={`density-btn ${density === 'compact' ? 'active' : ''}`}
+                          onClick={() => setDensity('compact')}
+                          style={{
+                            flex: 1,
+                            padding: '6px',
+                            border: density === 'compact' ? '1px solid var(--primary-blue)' : '1px solid var(--border-color)',
+                            background: density === 'compact' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-primary)',
+                            color: density === 'compact' ? 'var(--primary-blue)' : 'var(--text-secondary)',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Compact
+                        </button>
+                        <button
+                          className={`density-btn ${density === 'comfortable' ? 'active' : ''}`}
+                          onClick={() => setDensity('comfortable')}
+                          style={{
+                            flex: 1,
+                            padding: '6px',
+                            border: density === 'comfortable' ? '1px solid var(--primary-blue)' : '1px solid var(--border-color)',
+                            background: density === 'comfortable' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-primary)',
+                            color: density === 'comfortable' ? 'var(--primary-blue)' : 'var(--text-secondary)',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Comfortable
+                        </button>
+                      </div>
                       <div className="dropdown-header">컬럼 설정 (표시 및 순서)</div>
                       <div className="column-list">
                         <div className="dropdown-section">
@@ -291,6 +327,7 @@ function SQLResultPanel({ sql, executedSQL, activeTab, setActiveTab, globalFeedb
                 visibleColumns={visibleColumns}
                 allResultsCount={allResults.length}
                 tableContainerRef={tableContainerRef}
+                density={density}
               />
             ) : (
               <div className="empty-state">

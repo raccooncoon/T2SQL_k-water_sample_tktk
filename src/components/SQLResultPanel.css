@@ -387,7 +387,7 @@
 }
 
 .results-table th {
-  padding: 14px 20px;
+  padding: 10px 20px;
   text-align: left;
   font-weight: 500;
   color: var(--text-secondary);
@@ -399,9 +399,23 @@
 }
 
 .results-table td {
-  padding: 14px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
+}
+
+/* Density Variants */
+.results-table.density-comfortable th,
+.results-table.density-comfortable td {
+  padding: 16px 20px;
+}
+
+.results-table.density-compact th,
+.results-table.density-compact td {
+  padding: 8px 20px;
+  line-height: 1.4;
+  height: auto;
+  font-size: 13px;
 }
 
 .results-table tbody tr:hover {
